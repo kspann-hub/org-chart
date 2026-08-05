@@ -40,6 +40,13 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
 
       - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on if it isn't already, instead of failing with
+          # "Get Pages site failed". Without this the very first run of a new
+          # repo dies before it compiles anything, because the workflow is
+          # what gets pushed first and the Pages setting is a manual click.
+          enablement: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
