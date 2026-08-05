@@ -1,0 +1,866 @@
+/* Dark throughout, rather than following the system preference. The chart is
+   a wall of coloured cards and it simply reads better on a dark ground. */
+:root {
+  --bg: #161719;
+  --surface: #1f2124;
+  --line: #2c2f34;
+  --line-strong: #43474e;
+  --text: #eceef1;
+  --text-soft: #9aa1ac;
+  --accent: #4f8cf7;
+  --accent-soft: #1d2a44;
+  --warn: #e3b341;
+  --warn-soft: #37300f;
+  --danger: #f27a72;
+  --node-accent: #2f5fd0;
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 7px 9px;
+  width: 100%;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.btn-primary,
+.btn-quiet,
+.btn-danger {
+  border-radius: 6px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 500;
+}
+
+.btn-quiet {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.btn-quiet:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* -------------------------------------------------------------------- login */
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: min(400px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+}
+
+.login-card h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.login-lede {
+  color: var(--text-soft);
+  margin: 0 0 20px;
+}
+
+.login-note {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.login-card form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+}
+
+.btn-google:hover {
+  border-color: var(--accent);
+}
+
+.btn-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 4px;
+  font-size: 13px;
+  color: var(--text-soft);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn-link:hover {
+  color: var(--accent);
+}
+
+.login-error {
+  color: var(--danger);
+  margin: 12px 0 0;
+}
+
+/* ------------------------------------------------------------------- shell */
+
+/* Flex, not grid with fixed rows: the error banner is conditional, so a
+   positional `grid-template-rows` assigns the wrong row to every child
+   whenever it's absent — which is nearly always. */
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.boot {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-soft);
+  padding: 40px;
+  text-align: center;
+}
+
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.search {
+  position: relative;
+  width: 240px;
+}
+
+.search-count {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.banner {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-bottom: 1px solid var(--line);
+}
+
+/* flex:1 takes the leftover height; min-height:0 lets it shrink below its
+   content so the chart scrolls internally instead of pushing the footer off. */
+.body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.statusbar {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 18px;
+  padding: 7px 16px;
+  font-size: 12px;
+  color: var(--text-soft);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.statusbar span:last-child {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------- chart */
+
+.chart-viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.chart-viewport.is-panning {
+  cursor: grabbing;
+}
+
+.chart-canvas {
+  position: absolute;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.chart-links {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.chart-links path {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.chart-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: var(--shadow);
+}
+
+.chart-controls button {
+  background: none;
+  border: none;
+  color: var(--text);
+  border-radius: 5px;
+  padding: 4px 9px;
+}
+
+.chart-controls button:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.zoom-readout {
+  font-size: 12px;
+  color: var(--text-soft);
+  min-width: 42px;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------- node */
+/* A node is an avatar sitting above a coloured card, overlapping it. NODE_H
+   in layout.ts covers the whole stack, so the avatar's height is part of the
+   box the tree layout reserves. */
+
+.node {
+  position: absolute;
+  cursor: pointer;
+  transition: opacity 0.12s, transform 0.12s;
+}
+
+.node-avatar-slot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: #3a3d43;
+  border: 2px solid var(--bg);
+  overflow: hidden;
+  flex: none;
+}
+
+.node-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 20px 12px 10px;
+  text-align: center;
+  background: var(--node-accent);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.node-name,
+.node-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+}
+
+.node-title {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.node-flag {
+  font-size: 10px;
+  color: #ffe08a;
+}
+
+/* A seat with no title is a compact pill rather than a two-line card. */
+.node.is-compact .node-card {
+  top: 32px;
+  padding: 6px 12px;
+}
+
+.node:hover .node-card {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.node.is-selected .node-card {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18), var(--shadow);
+}
+
+.node.is-matched .node-card {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
+}
+
+.node.is-dimmed {
+  opacity: 0.25;
+}
+
+.node.is-drop-target .node-card {
+  border: 2px dashed #fff;
+}
+
+.node.is-vacant .node-card {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+}
+
+.node.is-vacant .node-name {
+  color: var(--text-soft);
+}
+
+.node.is-stale .node-card {
+  border-bottom: 3px solid var(--warn);
+}
+
+.node.is-viewer .node-card {
+  box-shadow: 0 0 0 2px #fff, var(--shadow);
+}
+
+.node-you {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+  color: var(--node-accent);
+  background: #fff;
+  border-radius: 999px;
+}
+
+.node-toggle {
+  position: absolute;
+  bottom: -10px;
+  right: -8px;
+  z-index: 3;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.node-toggle:hover {
+  color: #fff;
+  border-color: #fff;
+}
+
+/* ------------------------------------------------------------- home / groups */
+
+.home {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+.home-inner {
+  width: 100%;
+  max-width: 1180px;
+  margin: auto;
+}
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+.group-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  border-radius: 14px;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.group-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.group-card h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.group-count {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.group-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.group-lead-name {
+  font-weight: 600;
+}
+
+.group-lead-title {
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.avatar-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.avatar-more {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-soft);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+
+.group-open {
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.home-empty {
+  max-width: 520px;
+  margin: 0 auto 32px;
+  padding: 28px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.home-empty h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.home-empty p {
+  color: var(--text-soft);
+  margin: 0 0 18px;
+}
+
+.home-footer {
+  margin-top: 32px;
+  text-align: center;
+}
+
+.home-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.brand-mark {
+  color: var(--accent);
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.count-readout {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------ photo controls */
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.photo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.photo-actions {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.photo-actions input[type='file'] {
+  font-size: 12px;
+  padding: 4px;
+  border: none;
+  background: none;
+}
+
+.accent-row {
+  display: flex;
+  gap: 8px;
+}
+
+.accent-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+
+.accent-dot.is-on {
+  border-color: #fff;
+}
+
+.panel-sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.panel {
+  width: 330px;
+  flex: 0 0 330px;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.panel label {
+  display: grid;
+  gap: 5px;
+}
+
+.panel label > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.panel label.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel label.row input {
+  width: auto;
+}
+
+.panel label.row span {
+  font-weight: 400;
+  color: var(--text);
+}
+
+.panel small {
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+.panel-lede,
+.panel-note,
+.panel-empty {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.panel-error {
+  color: var(--danger);
+  margin: 0;
+  font-size: 13px;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.panel-danger {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.panel-danger .btn-danger {
+  justify-self: start;
+}
+
+.panel-meta {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+.panel-meta dt {
+  font-weight: 600;
+}
+
+.panel-meta dd {
+  margin: 2px 0 8px;
+  word-break: break-all;
+}
+
+.panel-meta a {
+  color: var(--accent);
+}
+
+/* --------------------------------------------------------------- tray list */
+
+.tray-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.tray-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.tray-title {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-soft);
+}
+
+/* ------------------------------------------------------------------- print */
+
+@media print {
+  .topbar,
+  .statusbar,
+  .panel,
+  .chart-controls,
+  .node-toggle,
+  .banner {
+    display: none !important;
+  }
+
+  .app,
+  .chart-viewport {
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Reset the pan/zoom transform so the browser paginates the real chart
+     rather than whatever happened to be on screen. */
+  .chart-canvas {
+    position: static !important;
+    transform: none !important;
+  }
+
+  .node {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

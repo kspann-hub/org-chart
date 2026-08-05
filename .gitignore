@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+*.local
+
+# Working notes and anything containing real employee data. This repo is
+# public (GitHub Pages requires it on the free plan) — keep rosters out of it.
+local-notes/
+*.csv
+*.xlsx
+
+.DS_Store
+Thumbs.db
+.vscode/
