@@ -43,22 +43,31 @@ create table if not exists public.org_admins (
   created_at timestamptz not null default now()
 );
 
--- >>> EDIT THIS LIST: one row per admin. <<<
--- These must match the Google account each person signs in with, exactly.
--- A typo here fails silently: they sign in fine and just see "View only".
-insert into public.org_admins (email, note) values
-  ('kspann@criticalarccx.com',   'initial admin'),
-  ('arclab@criticalarccx.com',   'admin'),
-  ('fsalinas@criticalarccx.com', 'admin'),
-  ('acarter@criticalarccx.com',  'admin'),
-  ('bagosta@criticalarccx.com',  'admin'),
-  ('jharder@criticalarccx.com',  'admin'),
-  ('lsmith@criticalarccx.com',   'admin')
-on conflict (email) do nothing;
-
+-- >>> THE ADMIN LIST IS NOT IN THIS FILE. <<<
+--
+-- This repository is public — GitHub Pages requires it on the free plan — so
+-- the real addresses live in local-notes/admins.sql, which is gitignored.
+-- Run that file after this one.
+--
+-- Nothing here grants admin to anyone. A database built from this script
+-- alone has an empty org_admins table, which means the chart is readable by
+-- the whole company and editable by nobody. That is the safe direction to
+-- fail, but it does mean the seed is not finished until you run the local
+-- file (or the one statement below) and give at least one person the keys:
+--
+--   insert into public.org_admins (email, note)
+--   values ('you@criticalarccx.com', 'initial admin')
+--   on conflict (email) do nothing;
+--
+-- The address must match the Google account that person signs in with,
+-- exactly. A typo fails silently: they sign in fine and just see "View only".
+--
 -- To add or remove an admin later, no redeploy needed — just:
 --   insert into public.org_admins (email) values ('new.person@criticalarccx.com');
 --   delete from public.org_admins where email = 'someone@criticalarccx.com';
+--
+-- To see who currently has it:
+--   select email, note, created_at from public.org_admins order by email;
 
 create or replace function public.is_org_admin()
 returns boolean

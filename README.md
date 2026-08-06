@@ -280,6 +280,30 @@ watch the network tab before signing in — every query should come back `[]`.
 
 ## Using it
 
+**The landing page** is the whole firm as one circle — every seat at once, no
+scrolling. Nothing sits at the centre except the firm itself: the verticals are
+peers, and putting the President in the middle would say the opposite. Each
+vertical owns a wedge sized by its headcount, its lead sits on the leadership
+ring, and depth inside the vertical becomes distance from the middle
+(*Leadership → Account managers → Project managers → Project teams*, renamable
+in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
+
+- **Hover anyone** to light their line back to their vertical's lead, plus
+  their own direct reports. Click to keep it; the panel names their ring and
+  counts what's under them.
+- **Open a vertical** from the buttons beside the circle, or by clicking its
+  coloured band. That's where the tree views live — the circle answers "what
+  does this place look like", the tree answers "who reports to whom".
+- **Teams** folds the outer rings away. Nobody moves when it does: the wedges
+  are pinned by headcount, so folding isn't a re-layout.
+- Headshots show on the inner three rings — largest for the leads, smallest for
+  project managers — using the same private-bucket signed URLs the boxes use,
+  with initials underneath when a seat has no photo or its URL has expired. The
+  outer rings are dots; a face wouldn't read at that size.
+- A branch deeper than four levels grows a fifth ring rather than being
+  flattened into the fourth, and seats belonging to no vertical get their own
+  wedge instead of vanishing from a page that claims to show everyone.
+
 **Everyone**
 
 - **Find me** jumps to your own box, which is also outlined and tagged *You*.

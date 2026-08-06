@@ -10,6 +10,7 @@ import type {
   SyncResult,
 } from './lib/types'
 import { descendantIds, joinNodes, layoutChart } from './lib/layout'
+import { layoutCircle } from './lib/circle'
 import { assignGroups, summariseGroups, ungroupedNodes } from './lib/groups'
 import { signPhotoPaths } from './lib/photos'
 import { downloadBlob, exportChartPng } from './lib/exportPng'
@@ -152,6 +153,10 @@ export default function App() {
     () => layoutChart(visibleNodes, collapsed, orientation),
     [visibleNodes, collapsed, orientation],
   )
+
+  // The landing page. Laid out from every seat regardless of which vertical is
+  // open, because it is the one view that always shows the whole firm.
+  const circle = useMemo(() => layoutCircle(nodes, groups), [nodes, groups])
 
   const accentById = useMemo(() => {
     const byGroup = new Map(groups.map((g) => [g.id, g.accent]))
@@ -597,9 +602,11 @@ export default function App() {
           </div>
         ) : onHome ? (
           <Home
+            circle={circle}
             summaries={summaries}
             ungrouped={ungrouped}
             totalSeats={nodes.length}
+            viewerIds={viewerIds}
             onOpenGroup={(id) => setViewMode(id)}
             onOpenAll={() => setViewMode('all')}
           />

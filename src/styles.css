@@ -7,6 +7,7 @@
   --line-strong: #43474e;
   --text: #eceef1;
   --text-soft: #9aa1ac;
+  --text-faint: #6b7280;
   --accent: #4f8cf7;
   --accent-soft: #1d2a44;
   --warn: #e3b341;
@@ -198,14 +199,36 @@ button:disabled {
   text-align: center;
 }
 
+/* Wraps on purpose. An admin on a laptop now has brand, search, orientation,
+   Find me, count, Sync, Recent changes, Add, All groups, PNG and Sign out in
+   this row — without wrapping, the ones on the right get squeezed to slivers
+   or pushed off the edge entirely, which reads as "the new buttons aren't
+   there". */
 .topbar {
   flex: 0 0 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  row-gap: 8px;
   padding: 10px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+}
+
+/* Buttons keep their full label rather than shrinking to fit. */
+.topbar button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* The spacer only does its job on a row wide enough to have slack; once the
+   bar wraps it would otherwise force a near-empty second line. */
+@media (max-width: 1100px) {
+  .topbar .spacer {
+    flex-basis: 100%;
+    height: 0;
+  }
 }
 
 .topbar h1 {
@@ -508,128 +531,424 @@ button:disabled {
   border-color: #fff;
 }
 
-/* ------------------------------------------------------------- home / groups */
+/* --------------------------------------------------------------- home / circle */
+/* The landing page: the whole firm as one circle, with a way into each
+   vertical beside it. See lib/circle.ts for why it is shaped this way. */
 
 .home {
   flex: 1;
-  overflow-y: auto;
-  display: flex;
-  justify-content: center;
-  padding: 48px 24px;
-}
-
-.home-inner {
-  width: 100%;
-  max-width: 1180px;
-  margin: auto;
-}
-
-.group-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  min-height: 0;
 }
 
-.group-card {
+.circle-stage {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  min-width: 0;
+  overflow: auto;
+  background: radial-gradient(circle at 50% 48%, #1b1d20 0%, var(--bg) 62%);
+}
+
+.circle-chart {
+  /* Square, so it fits the shorter of the two axes and never crops. */
+  width: min(100%, 88vh);
+  height: auto;
+  display: block;
+}
+
+.cring-guide {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+/* The ring names sit in the wedge gap held open at the top — the one place
+   on the circle where they can't land on somebody. */
+.cring-label-bg {
+  fill: var(--bg);
+}
+
+.cring-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  fill: var(--text-faint, #6b7280);
+  text-anchor: middle;
+}
+
+.is-folded {
+  display: none;
+}
+
+.cband-arc {
+  opacity: 0.5;
+}
+
+.cband-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.cband.is-openable {
+  cursor: pointer;
+}
+
+.cband.is-openable:hover .cband-arc {
+  opacity: 0.95;
+}
+
+/* The firm ties out to each lead, and the leadership ring ties the leads to
+   each other. Dashed, because neither one is a reporting line. */
+.cspoke {
+  stroke-width: 1.6;
+  stroke-dasharray: 3 4;
+  opacity: 0.5;
+}
+
+.cleadership-ring {
+  fill: none;
+  stroke: #565b64;
+  stroke-width: 1.8;
+}
+
+.ccenter-disc {
+  fill: var(--surface);
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+}
+
+.ccenter-mark {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  fill: var(--text);
+  text-anchor: middle;
+}
+
+.ccenter-num {
+  font: 600 30px ui-monospace, SFMono-Regular, Consolas, monospace;
+  fill: var(--text);
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.ccenter-unit {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  fill: var(--text-faint, #6b7280);
+  text-anchor: middle;
+}
+
+.clink {
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.42;
+}
+
+.cnode {
+  cursor: pointer;
+}
+
+.cnode,
+.clink,
+.cband-arc {
+  transition: opacity 0.14s, stroke-width 0.14s;
+}
+
+.cavatar {
+  fill: #3a3d43;
+  stroke-width: 2;
+}
+
+.cavatar-initials {
+  font-weight: 600;
+  fill: var(--text-soft);
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.cdot {
+  stroke: var(--bg);
+  stroke-width: 1.5;
+}
+
+.chit {
+  fill: transparent;
+}
+
+.cmarker {
+  fill: none;
+  stroke-width: 1.4;
+}
+
+.cmarker.is-you {
+  stroke: var(--accent);
+}
+
+.cmarker.is-stale {
+  stroke: var(--warn);
+  stroke-dasharray: 2 2;
+}
+
+.cmarker.is-vacant {
+  stroke: var(--line-strong);
+  stroke-dasharray: 3 3;
+}
+
+/* A halo in the page colour, so a name crossing a link stays readable. */
+.clabel {
+  fill: var(--text);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3.2px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.clabel.is-lead {
+  font-size: 13.5px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.clabel.is-lead-role {
+  font-size: 11px;
+  fill: var(--text-soft);
+  text-anchor: middle;
+  stroke-width: 3px;
+}
+
+.clabel.is-manager {
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: #d7dbe1;
+}
+
+.clabel.is-leaf {
+  font-size: 10.5px;
+  fill: #c0c6ce;
+}
+
+.cnode.is-selected .cavatar,
+.cnode.is-selected .cdot {
+  stroke: var(--text);
+  stroke-width: 2.5;
+}
+
+/* Hovering anyone lights their line back to their vertical lead and drops
+   everything else back, which is the only way to trace a branch at this size. */
+.circle-chart.has-focus .cnode {
+  opacity: 0.14;
+}
+
+.circle-chart.has-focus .clink {
+  opacity: 0.06;
+}
+
+.circle-chart.has-focus .cband-arc {
+  opacity: 0.16;
+}
+
+.circle-chart.has-focus .cnode.is-lit {
+  opacity: 1;
+}
+
+.circle-chart.has-focus .clink.is-lit {
+  opacity: 0.95;
+  stroke-width: 2.2;
+}
+
+/* -------------------------------------------------------------- home rail */
+
+.home-rail {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 22px;
-  text-align: left;
-  color: var(--text);
+  gap: 18px;
+  padding: 16px;
+  overflow-y: auto;
   background: var(--surface);
-  border: 2px solid var(--line-strong);
-  border-radius: 14px;
-  transition: transform 0.12s, box-shadow 0.12s;
+  border-left: 1px solid var(--line);
 }
 
-.group-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+.home-toggles {
+  display: flex;
+  gap: 8px;
 }
 
-.group-card h2 {
-  margin: 0;
-  font-size: 19px;
-}
-
-.group-count {
-  margin: -8px 0 0;
-  font-size: 13px;
+.rail-eyebrow {
+  margin: 0 0 8px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--text-soft);
 }
 
-.group-lead {
+.rail-readout {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 11px;
+  min-height: 118px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
-.group-lead-name {
-  font-weight: 600;
+.rail-readout-body {
+  min-width: 0;
 }
 
-.group-lead-title {
+.rail-readout h2 {
+  margin: 0;
+  font-size: 15.5px;
+}
+
+.rail-role {
+  margin: 3px 0 0;
   font-size: 12.5px;
   color: var(--text-soft);
 }
 
-.avatar-stack {
+.rail-hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-soft);
+}
+
+.rail-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 10px;
 }
 
-.avatar-more {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  font-size: 10px;
+.rail-pill {
+  padding: 3px 8px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--text-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.rail-pill.is-you {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.rail-pill.is-stale {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+.vertical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vertical-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text);
   background: var(--bg);
   border: 1px solid var(--line);
+  border-left: 3px solid;
+  border-radius: var(--radius);
+  transition: background 0.12s;
+}
+
+.vertical-btn:hover {
+  background: var(--surface);
+}
+
+.vertical-btn-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.vertical-name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.vertical-meta {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vertical-open {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ring-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ring-row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+}
+
+.ring-row i {
+  justify-self: center;
+  background: #3a3d43;
+  border: 1.5px solid var(--line-strong);
   border-radius: 50%;
 }
 
-.group-open {
-  margin-top: auto;
-  padding-top: 6px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.home-empty {
-  max-width: 520px;
-  margin: 0 auto 32px;
-  padding: 28px;
-  text-align: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-
-.home-empty h2 {
-  margin: 0 0 8px;
-  font-size: 17px;
-}
-
-.home-empty p {
+.ring-row span {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
   color: var(--text-soft);
-  margin: 0 0 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .home-footer {
-  margin-top: 32px;
-  text-align: center;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.home-note {
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  color: var(--text-soft);
+@media (max-width: 980px) {
+  .home {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .home-rail {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    overflow: visible;
+  }
+
+  .circle-chart {
+    width: 100%;
+  }
 }
 
 .brand {
@@ -867,13 +1186,25 @@ button:disabled {
   .panel,
   .chart-controls,
   .node-toggle,
-  .banner {
+  .banner,
+  .home-rail {
     display: none !important;
   }
 
   .app,
   .chart-viewport {
     height: auto;
+    overflow: visible;
+  }
+
+  /* The circle prints as the circle. The rail is a set of controls, and the
+     gradient just costs toner. */
+  .home {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .circle-stage {
+    background: none;
     overflow: visible;
   }
 
