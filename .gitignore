@@ -14,3 +14,6 @@ local-notes/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Session handoff notes — names real employees and admin addresses.
+HANDOFF.md

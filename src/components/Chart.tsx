@@ -71,7 +71,7 @@ export function Chart(props: Props) {
     fit()
   }, [fit, layout.width, props.orientation])
 
-  // Recentre on a specific seat — used by search and by the unseated tray.
+  // Recentre on a specific seat — used by search and by newly added seats.
   const { focusId, onFocusHandled } = props
   useEffect(() => {
     const target = focusId ? layout.byId.get(focusId) : null

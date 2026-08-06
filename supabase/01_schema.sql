@@ -49,7 +49,11 @@ create table if not exists public.org_admins (
 insert into public.org_admins (email, note) values
   ('kspann@criticalarccx.com',   'initial admin'),
   ('arclab@criticalarccx.com',   'admin'),
-  ('fsalinas@criticalarccx.com', 'admin')
+  ('fsalinas@criticalarccx.com', 'admin'),
+  ('acarter@criticalarccx.com',  'admin'),
+  ('bagosta@criticalarccx.com',  'admin'),
+  ('jharder@criticalarccx.com',  'admin'),
+  ('lsmith@criticalarccx.com',   'admin')
 on conflict (email) do nothing;
 
 -- To add or remove an admin later, no redeploy needed — just:

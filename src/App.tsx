@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
-import type { Employee, Group, Orientation, Position } from './lib/types'
+import type {
+  Employee,
+  Group,
+  HistoryEntry,
+  Orientation,
+  Position,
+  SyncResult,
+} from './lib/types'
 import { descendantIds, joinNodes, layoutChart } from './lib/layout'
 import { assignGroups, summariseGroups, ungroupedNodes } from './lib/groups'
 import { signPhotoPaths } from './lib/photos'
@@ -11,7 +18,7 @@ import { isCompanyEmail } from './lib/config'
 import { Chart } from './components/Chart'
 import { Home } from './components/Home'
 import { EditPanel } from './components/EditPanel'
-import { UnseatedTray } from './components/UnseatedTray'
+import { HistoryPanel } from './components/HistoryPanel'
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
@@ -33,7 +40,14 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [showTray, setShowTray] = useState(false)
+
+  // Sync + history are admin tools, kept out of the main data load so a
+  // viewer's page never asks for them at all.
+  const [syncing, setSyncing] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [undoing, setUndoing] = useState<string | null>(null)
 
   // Horizontal by default: a 76-person top-down tree is ~18,000px wide and
   // unreadable without zooming out past the point of legibility. Remembered
@@ -162,17 +176,14 @@ export default function App() {
     )
   }, [visibleNodes, query])
 
-  const unseated = useMemo(() => {
-    const seated = new Set(positions.map((p) => p.employee_key).filter(Boolean))
-    return directory
-      .filter((e) => e.employment_status === 'Active' && !seated.has(e.employee_key))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name))
-  }, [positions, directory])
-
   const forbiddenIds = useMemo(
     () => (draggingId ? descendantIds(draggingId, nodes) : new Set<string>()),
     [draggingId, nodes],
   )
+
+  // Every seat on the chart, not just the ones currently visible — the change
+  // log names managers that may sit outside the group being viewed.
+  const nameById = useMemo(() => new Map(nodes.map((n) => [n.id, n.name])), [nodes])
 
   // Which boxes are the signed-in user's own. Matched on Ajera's
   // employee_email, so it only works for people whose login address matches
@@ -193,7 +204,17 @@ export default function App() {
   // Every one of these can be refused by the database if the caller isn't an
   // admin. That's the real guard; the UI just doesn't offer them.
 
-  const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+  // Supabase hands back a plain object, not an Error. Running that through
+  // String() yields "[object Object]", which is how a refused write used to
+  // look like nothing happening at all.
+  const fail = (e: unknown) => {
+    if (e instanceof Error) return setError(e.message)
+    if (e && typeof e === 'object' && 'message' in e) {
+      const { message, hint } = e as { message?: unknown; hint?: unknown }
+      return setError([message, hint].filter(Boolean).join(' — ') || 'Something went wrong.')
+    }
+    setError(String(e))
+  }
 
   async function reparent(childId: string, newParentId: string | null) {
     const { error } = await supabase
@@ -240,11 +261,17 @@ export default function App() {
   }
 
   async function addChild(parentId: string | null) {
-    const siblings = positions.filter((p) => p.parent_id === parentId)
+    // A seat with no parent is a new root. Inside a group view the group's
+    // members are the only visible nodes, so a new root lands outside the
+    // filter and the click looks like it did nothing. Falling back to the
+    // group's own root keeps the new seat where the admin is looking.
+    const effectiveParent = parentId ?? activeGroup?.root_position_id ?? null
+
+    const siblings = positions.filter((p) => p.parent_id === effectiveParent)
     const { data, error } = await supabase
       .from('org_positions')
       .insert({
-        parent_id: parentId,
+        parent_id: effectiveParent,
         name_override: 'New seat',
         sort_order: Math.max(0, ...siblings.map((s) => s.sort_order)) + 1,
       })
@@ -255,19 +282,6 @@ export default function App() {
     await load()
     setSelectedId(data.id)
     setFocusId(data.id)
-  }
-
-  async function seatEmployee(employee: Employee) {
-    const parentId = selectedId
-    const siblings = positions.filter((p) => p.parent_id === parentId)
-    const { error } = await supabase.from('org_positions').insert({
-      parent_id: parentId,
-      employee_key: employee.employee_key,
-      title_override: employee.employee_title,
-      sort_order: Math.max(0, ...siblings.map((s) => s.sort_order)) + 1,
-    })
-    if (error) return fail(error)
-    await load()
   }
 
   async function deleteSeat(id: string) {
@@ -297,6 +311,74 @@ export default function App() {
     if (error) return fail(error)
     setSelectedId(null)
     await load()
+  }
+
+  // ------------------------------------------------------- sync + history
+  // Both of these lean on functions added by 04_sync_and_history.sql. If that
+  // script hasn't been run the RPC 404s, so the message says which file to
+  // run rather than showing Postgres's own wording.
+
+  const missingScript = (e: { message?: string; code?: string }) =>
+    e.code === 'PGRST202' || (e.message ?? '').includes('org_sync_ajera')
+      ? 'Run supabase/04_sync_and_history.sql in the SQL Editor first — this feature needs it.'
+      : null
+
+  const loadHistory = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('org_position_history')
+      .select('*')
+      .order('changed_at', { ascending: false })
+      .limit(100)
+
+    if (error) return fail(missingScript(error) ?? error)
+    setHistory((data ?? []) as HistoryEntry[])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function syncAjera() {
+    if (
+      !window.confirm(
+        'Pull the latest roster from Ajera?\n\n' +
+          'This only ADDS people who are missing and slots them under their ' +
+          'Ajera manager. It never deletes a seat, never moves one you have ' +
+          'already arranged by hand, and never writes back to Ajera.',
+      )
+    ) {
+      return
+    }
+
+    setSyncing(true)
+    setNotice(null)
+    const { data, error } = await supabase.rpc('org_sync_ajera')
+    setSyncing(false)
+
+    if (error) return fail(missingScript(error) ?? error)
+
+    const r = data as SyncResult
+    const parts = [
+      r.added === 0
+        ? 'No new people to add'
+        : `Added ${r.added} new ${r.added === 1 ? 'person' : 'people'}`,
+      r.parented > 0 && `slotted ${r.parented} under their manager`,
+      r.departed > 0 &&
+        `${r.departed} ${r.departed === 1 ? 'seat holds someone' : 'seats hold people'} ` +
+          'Ajera no longer lists as active — those are flagged, not removed',
+    ].filter(Boolean)
+
+    setNotice(`${parts.join(' · ')}. ${r.total} seats total.`)
+    await load()
+    if (showHistory) await loadHistory()
+  }
+
+  async function undoChange(entry: HistoryEntry) {
+    setUndoing(entry.id)
+    const { error } = await supabase.rpc('org_undo_change', { p_history_id: entry.id })
+    setUndoing(null)
+
+    if (error) return fail(error)
+    setNotice('Change undone.')
+    await load()
+    await loadHistory()
   }
 
   function toggleCollapse(id: string) {
@@ -418,15 +500,43 @@ export default function App() {
         {isAdmin && (
           <>
             <span className="badge">Admin</span>
+
+            {/* Sync and history sit outside the !onHome guard on purpose —
+                both are useful from the landing page, and the request was
+                for the sync to be reachable from every screen. */}
+            <button
+              className="btn-quiet"
+              onClick={() => void syncAjera()}
+              disabled={syncing}
+              title="Add anyone new from Ajera. Never deletes, never writes back to Ajera."
+            >
+              {syncing ? 'Syncing…' : '⟳ Sync with Ajera'}
+            </button>
+
+            <button
+              className="btn-quiet"
+              onClick={() => {
+                const next = !showHistory
+                setShowHistory(next)
+                if (next) void loadHistory()
+              }}
+              title="See recent edits and undo one"
+            >
+              Recent changes
+            </button>
+
             {!onHome && (
-              <>
-                <button className="btn-quiet" onClick={() => setShowTray((v) => !v)}>
-                  Not on the chart{unseated.length > 0 ? ` (${unseated.length})` : ''}
-                </button>
-                <button className="btn-quiet" onClick={() => void addChild(selectedId)}>
-                  {selectedId ? 'Add a report' : 'Add a seat'}
-                </button>
-              </>
+              <button
+                className="btn-quiet"
+                onClick={() => void addChild(selectedId)}
+                title={
+                  selectedId
+                    ? 'Add a seat reporting to the selected box'
+                    : 'Add a seat, then pick who fills it'
+                }
+              >
+                {selectedId ? 'Add a report' : 'Add a person'}
+              </button>
             )}
           </>
         )}
@@ -463,6 +573,15 @@ export default function App() {
         <div className="banner">
           {error}
           <button className="btn-quiet" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {notice && (
+        <div className="banner is-notice">
+          {notice}
+          <button className="btn-quiet" onClick={() => setNotice(null)}>
             Dismiss
           </button>
         </div>
@@ -505,16 +624,7 @@ export default function App() {
           />
         )}
 
-        {isAdmin && !onHome && showTray && (
-          <UnseatedTray
-            unseated={unseated}
-            selectedName={selected?.name ?? null}
-            onSeat={(e) => void seatEmployee(e)}
-            onClose={() => setShowTray(false)}
-          />
-        )}
-
-        {isAdmin && !onHome && !showTray && selected && (
+        {isAdmin && !onHome && selected && (
           <EditPanel
             node={selected}
             directory={directory}
@@ -527,6 +637,17 @@ export default function App() {
             onAddChild={() => void addChild(selected.id)}
             onDelete={() => void deleteSeat(selected.id)}
             onClose={() => setSelectedId(null)}
+          />
+        )}
+
+        {isAdmin && showHistory && (
+          <HistoryPanel
+            entries={history}
+            nameFor={(id) => (id ? layout.byId.get(id)?.name ?? nameById.get(id) ?? null : null)}
+            undoing={undoing}
+            onUndo={(entry) => void undoChange(entry)}
+            onRefresh={() => void loadHistory()}
+            onClose={() => setShowHistory(false)}
           />
         )}
       </div>

@@ -255,6 +255,13 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
+/* Same shape as the error banner, but blue — a sync result is information,
+   not a problem, and the two shouldn't read the same at a glance. */
+.banner.is-notice {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* flex:1 takes the leftover height; min-height:0 lets it shrink below its
    content so the chart scrolls internally instead of pushing the footer off. */
 .body {
@@ -759,14 +766,6 @@ button:disabled {
   color: var(--text-soft);
 }
 
-.panel-lede,
-.panel-note,
-.panel-empty {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 13px;
-}
-
 .panel-error {
   color: var(--danger);
   margin: 0;
@@ -808,9 +807,15 @@ button:disabled {
   color: var(--accent);
 }
 
-/* --------------------------------------------------------------- tray list */
+/* --------------------------------------------------------- change history */
 
-.tray-list {
+.history-empty {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.history-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -818,18 +823,38 @@ button:disabled {
   gap: 6px;
 }
 
-.tray-list li {
+.history-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
 }
 
-.tray-title {
-  display: block;
+/* Undone entries stay in the list rather than disappearing — the log is a
+   record of what happened, including the corrections. */
+.history-item.is-undone {
+  opacity: 0.55;
+}
+
+.history-item.is-undone .history-what {
+  text-decoration: line-through;
+}
+
+.history-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.history-what {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.history-meta {
   font-size: 11.5px;
   color: var(--text-soft);
 }

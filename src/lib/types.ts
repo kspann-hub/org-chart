@@ -36,6 +36,29 @@ export type Employee = {
   supervisor_key: string | null
 }
 
+/** One logged edit to a seat, from public.org_position_history. Admin-only. */
+export type HistoryEntry = {
+  id: string
+  position_id: string
+  action: 'insert' | 'update' | 'delete'
+  before_row: Record<string, unknown> | null
+  after_row: Record<string, unknown> | null
+  /** The seat's name at the time, cached so the log survives its deletion. */
+  label: string | null
+  changed_at: string
+  changed_by: string | null
+  undone_at: string | null
+  undone_by: string | null
+}
+
+/** What org_sync_ajera() reports back. Add-only: nothing is ever deleted. */
+export type SyncResult = {
+  added: number
+  parented: number
+  departed: number
+  total: number
+}
+
 /** Which way the tree grows. See layoutChart() for why both exist. */
 export type Orientation = 'vertical' | 'horizontal'
 
