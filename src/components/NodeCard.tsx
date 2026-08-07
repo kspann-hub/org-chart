@@ -1,5 +1,6 @@
 import type { PlacedNode } from '../lib/types'
 import { AVATAR_SIZE, NODE_H, NODE_W } from '../lib/layout'
+import { LINKEDIN_GLYPH, LINKEDIN_GLYPH_SIZE } from '../lib/linkedin'
 import { Avatar } from './Avatar'
 
 type Props = {
@@ -76,6 +77,31 @@ export function NodeCard(props: Props) {
     >
       <div className="node-avatar-slot">
         <Avatar node={node} size={AVATAR_SIZE} />
+
+        {/* Only shown when an admin has attached a profile. The click has to
+            be kept to itself: bubbling would select the box behind it, and a
+            link is draggable by default, which would fight the re-parent drag. */}
+        {node.linkedinUrl && (
+          <a
+            className="node-linkedin"
+            href={node.linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            draggable={false}
+            aria-label={`${node.name} on LinkedIn`}
+            title={`${node.name} on LinkedIn`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <g
+                fill="#fff"
+                transform={`translate(4.5 5) scale(${15 / LINKEDIN_GLYPH_SIZE})`}
+              >
+                <path d={LINKEDIN_GLYPH} />
+              </g>
+            </svg>
+          </a>
+        )}
       </div>
 
       <div className="node-card">

@@ -151,7 +151,7 @@ error rather than a consent screen.
 
 ### 2b. Groups and photos
 
-Two things to do, in this order:
+Three things to do, in this order:
 
 1. **Storage → New bucket** → name it `headshots` → **Public bucket OFF** →
    Create. Private is the point: photos are served as short-lived signed URLs,
@@ -159,6 +159,10 @@ Two things to do, in this order:
 2. Run [`supabase/03_groups_and_photos.sql`](supabase/03_groups_and_photos.sql).
    Read STEP 4a's output before running 4b — it shows which seat each of the
    three leads resolves to.
+3. Run [`supabase/05_linkedin.sql`](supabase/05_linkedin.sql) (after
+   `04_sync_and_history.sql`). It adds the `linkedin_url` column behind the
+   **LinkedIn profile** box in the edit panel — one column on `org_positions`,
+   so the existing read/write rules already cover it.
 
 **Groups are the verticals on the landing page.** A group is defined by one
 seat, its root, and membership is *nearest group-root ancestor* — not
@@ -334,6 +338,13 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
 - **Click a box** to open the edit panel: swap the person, override the
   displayed name or title, hide the title, delete the seat. The panel also
   shows the person's Ajera email and employee type.
+- **LinkedIn profile** in that panel puts a small LinkedIn badge on the corner
+  of that person's headshot, on the tree views and in the exported PNG. Anyone
+  signed in can click it to open the profile in a new tab; a seat with no link
+  simply has no badge. Paste the address from their profile page — with or
+  without the `https://`, tracking tails trimmed on save. The link is stored on
+  the *seat*, like the photo is, so someone holding several seats needs it on
+  each box that should show a badge. The landing-page circle stays plain.
 - **Not on the chart** lists active Ajera people with no box, which is your
   new-hire queue. Select the box they should report to first, then hit *Add*.
 - Deleting a manager **promotes their reports one level** rather than deleting

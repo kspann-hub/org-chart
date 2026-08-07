@@ -408,6 +408,33 @@ button:disabled {
   flex: none;
 }
 
+/* LinkedIn badge, tucked into the bottom-right of the headshot. Only appears
+   when a seat has a profile attached, and only on the tree chart — the
+   landing-page circle stays plain. */
+.node-linkedin {
+  position: absolute;
+  right: -3px;
+  bottom: -1px;
+  z-index: 3;
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: #0a66c2;
+  border: 2px solid var(--bg);
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.node-linkedin svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.node-linkedin:hover {
+  background: #0d7ae5;
+}
+
 .node-card {
   position: absolute;
   left: 0;

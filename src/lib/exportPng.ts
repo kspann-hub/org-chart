@@ -1,6 +1,7 @@
 import type { Layout, PlacedNode } from './types'
 import { AVATAR_SIZE, NODE_H, NODE_W } from './layout'
 import { initials } from '../components/Avatar'
+import { LINKEDIN_BLUE, LINKEDIN_GLYPH, LINKEDIN_GLYPH_SIZE } from './linkedin'
 
 /**
  * Render the chart to a PNG.
@@ -142,6 +143,37 @@ function drawNode(
     ctx.fillText(node.vacant ? '+' : initials(node.name), centreX, cy)
     ctx.textBaseline = 'top'
   }
+  ctx.restore()
+
+  if (node.linkedinUrl) drawLinkedInBadge(ctx, centreX + r, node.y + AVATAR_SIZE)
+}
+
+/**
+ * The same badge the chart shows, at the bottom-right of the headshot.
+ * `(edgeX, edgeY)` is that corner of the avatar; the badge straddles it, as
+ * the negative offsets in the stylesheet do on screen.
+ */
+function drawLinkedInBadge(ctx: CanvasRenderingContext2D, edgeX: number, edgeY: number) {
+  const size = 18
+  const x = edgeX - size + 3
+  const y = edgeY - size + 1
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(x, y, size, size, 5)
+  ctx.fillStyle = LINKEDIN_BLUE
+  ctx.fill()
+  ctx.lineWidth = 2
+  ctx.strokeStyle = BG
+  ctx.stroke()
+
+  // The glyph is drawn in its own 448-unit space, so it is scaled rather than
+  // redrawn at this size — same shape as the SVG on screen.
+  const glyph = 9
+  ctx.translate(x + (size - glyph) / 2, y + (size - glyph) / 2)
+  ctx.scale(glyph / LINKEDIN_GLYPH_SIZE, glyph / LINKEDIN_GLYPH_SIZE)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill(new Path2D(LINKEDIN_GLYPH))
   ctx.restore()
 }
 

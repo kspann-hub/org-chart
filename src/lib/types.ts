@@ -9,6 +9,8 @@ export type Position = {
   sort_order: number
   /** Object path inside the private `headshots` bucket. Null = use initials. */
   photo_path: string | null
+  /** Full profile URL, e.g. https://www.linkedin.com/in/jane-doe. Null = no badge. */
+  linkedin_url: string | null
   updated_at: string
   updated_by: string | null
 }
@@ -75,6 +77,8 @@ export type ChartNode = {
   vacant: boolean
   /** Signed URL for the headshot, resolved separately and injected. */
   photoUrl: string | null
+  /** Vetted profile link, or null. Drives the LinkedIn badge on the chart. */
+  linkedinUrl: string | null
 }
 
 /** A laid-out node: a ChartNode plus where to draw it. */

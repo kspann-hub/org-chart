@@ -8,6 +8,7 @@ import type {
   PlacedNode,
   Position,
 } from './types'
+import { linkedInHref } from './linkedin'
 
 export const NODE_W = 208
 export const NODE_H = 104
@@ -59,6 +60,7 @@ export function joinNodes(
       stale: Boolean(position.employee_key) && employee?.employment_status !== 'Active',
       vacant: !position.employee_key,
       photoUrl: position.photo_path ? photoUrls.get(position.photo_path) ?? null : null,
+      linkedinUrl: linkedInHref(position.linkedin_url),
     }
   })
 }

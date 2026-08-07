@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChartNode, Employee, Group } from '../lib/types'
 import { removeHeadshot, uploadHeadshot } from '../lib/photos'
+import { normaliseLinkedIn } from '../lib/linkedin'
 import { Avatar } from './Avatar'
 
 type Props = {
@@ -29,6 +30,7 @@ export function EditPanel(props: Props) {
   const [title, setTitle] = useState('')
   const [showTitle, setShowTitle] = useState(true)
   const [employeeKey, setEmployeeKey] = useState('')
+  const [linkedin, setLinkedin] = useState('')
   const [parentId, setParentId] = useState('')
   const [isGroup, setIsGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -45,6 +47,7 @@ export function EditPanel(props: Props) {
     setTitle(node.position.title_override ?? '')
     setShowTitle(node.position.show_title)
     setEmployeeKey(node.position.employee_key ?? '')
+    setLinkedin(node.position.linkedin_url ?? '')
     setParentId(node.position.parent_id ?? '')
     setIsGroup(Boolean(props.group))
     setGroupName(props.group?.name ?? '')
@@ -58,6 +61,11 @@ export function EditPanel(props: Props) {
     setSaving(true)
     setError(null)
     try {
+      // Normalising here, before anything is written, means a mistyped link
+      // stops the save with a readable message rather than being stored and
+      // then quietly refused by the database's CHECK constraint.
+      const linkedinUrl = normaliseLinkedIn(linkedin)
+
       await props.onSave({
         // Empty string means "no override" — store null so the Ajera value
         // shows through, rather than blanking the box out.
@@ -66,7 +74,9 @@ export function EditPanel(props: Props) {
         show_title: showTitle,
         employee_key: employeeKey || null,
         parent_id: parentId || null,
+        linkedin_url: linkedinUrl,
       })
+      setLinkedin(linkedinUrl ?? '')
       await props.onSaveGroup(
         isGroup ? { name: groupName.trim() || node.name, accent } : null,
       )
@@ -205,6 +215,20 @@ export function EditPanel(props: Props) {
           onChange={(e) => setShowTitle(e.target.checked)}
         />
         <span>Show a title on this box</span>
+      </label>
+
+      <label>
+        <span>LinkedIn profile</span>
+        <input
+          value={linkedin}
+          placeholder="https://www.linkedin.com/in/jane-doe"
+          onChange={(e) => setLinkedin(e.target.value)}
+        />
+        <small>
+          Paste the address from their profile page. A small LinkedIn badge then
+          appears on the corner of their photo, and clicking it opens the profile
+          in a new tab. Leave it blank for no badge.
+        </small>
       </label>
 
       <label>

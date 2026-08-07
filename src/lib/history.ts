@@ -17,6 +17,7 @@ const FIELDS: Record<string, string> = {
   show_title: 'title visibility',
   sort_order: 'position among siblings',
   photo_path: 'photo',
+  linkedin_url: 'LinkedIn link',
 }
 
 export function changedFields(entry: HistoryEntry): string[] {
