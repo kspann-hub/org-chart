@@ -515,6 +515,25 @@ button:disabled {
   color: var(--text-soft);
 }
 
+/* A seat an admin created here rather than one that came from Ajera. It keeps
+   its vertical's colour so the branch still reads as one block, and wears a
+   white dashed outline so it's clear the roster doesn't know about it.
+
+   These rules come after the vacant ones deliberately: a hand-added seat
+   starts out empty, and this is the look that should win while it is. */
+.node.is-manual .node-card {
+  background: var(--node-accent);
+  border: 2px dashed rgba(255, 255, 255, 0.92);
+}
+
+.node.is-manual .node-name {
+  color: #fff;
+}
+
+.node.is-manual .node-title {
+  color: rgba(255, 255, 255, 0.82);
+}
+
 .node.is-stale .node-card {
   border-bottom: 3px solid var(--warn);
 }
@@ -1154,6 +1173,81 @@ button:disabled {
 }
 
 /* --------------------------------------------------------- change history */
+
+/* Who arrived recently, pulled out above the full log. Boxed rather than
+   listed inline so it reads as an answer to its own question and not as the
+   first few entries of the log below it. */
+.history-added {
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.history-added h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.history-added-count {
+  padding: 0 6px;
+  font-size: 11px;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.history-added-none {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-soft);
+}
+
+.history-added-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.history-added-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.history-added-name {
+  font-weight: 600;
+}
+
+/* Which way someone arrived: from a sync, or typed in by an admin. The
+   hand-added tag borrows the chart's white dashes so the two read as the
+   same fact in two places. */
+.history-tag {
+  padding: 1px 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.history-tag.is-manual {
+  color: var(--text);
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.75);
+}
 
 .history-empty {
   margin: 0;

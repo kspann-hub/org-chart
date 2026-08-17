@@ -1,4 +1,4 @@
-import type { HistoryEntry } from './types'
+import type { HistoryEntry, SeatSource } from './types'
 
 /**
  * Turn a logged edit into something an admin can read at a glance.
@@ -70,6 +70,57 @@ function list(fields: string[]): string {
   const names = fields.map((f) => FIELDS[f] ?? f)
   if (names.length === 1) return names[0]
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}
+
+/** Someone who gained a seat recently, ready to list. */
+export type Addition = {
+  /** The history entry this came from, so it can key a list. */
+  id: string
+  name: string
+  /** Null for seats added before org_positions.source existed. */
+  origin: SeatSource | null
+  by: string
+  at: string
+}
+
+export const ADDED_WINDOW_HOURS = 24
+
+/**
+ * Who has been added lately.
+ *
+ * "Added" is an insert that still stands — an addition that was undone is
+ * left out, because the seat isn't there any more and listing it would send
+ * someone looking for a box that doesn't exist.
+ *
+ * A sync adds everyone in one go, so several entries usually share a
+ * timestamp to the second. They're kept in log order rather than being
+ * grouped: the panel is short, and the list reads as one batch anyway.
+ */
+export function recentAdditions(
+  entries: HistoryEntry[],
+  hours: number = ADDED_WINDOW_HOURS,
+  now: number = Date.now(),
+): Addition[] {
+  const cutoff = now - hours * 3_600_000
+
+  return entries
+    .filter(
+      (e) =>
+        e.action === 'insert' &&
+        !e.undone_at &&
+        new Date(e.changed_at).getTime() >= cutoff,
+    )
+    .map((e) => ({
+      id: e.id,
+      name: e.label ?? 'A seat',
+      origin: seatSource(e.after_row?.source),
+      by: e.changed_by ?? 'someone',
+      at: e.changed_at,
+    }))
+}
+
+function seatSource(value: unknown): SeatSource | null {
+  return value === 'manual' || value === 'ajera' ? value : null
 }
 
 /** "3 minutes ago" — the log is only ever read for recent things. */

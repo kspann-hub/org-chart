@@ -11,9 +11,14 @@ export type Position = {
   photo_path: string | null
   /** Full profile URL, e.g. https://www.linkedin.com/in/jane-doe. Null = no badge. */
   linkedin_url: string | null
+  /** How the seat came to exist. Undefined until 06_manual_seats.sql is run. */
+  source?: SeatSource
   updated_at: string
   updated_by: string | null
 }
+
+/** 'ajera' = created by the seed or the sync. 'manual' = typed in by an admin. */
+export type SeatSource = 'ajera' | 'manual'
 
 /** A vertical on the landing page, defined by the seat at its root. */
 export type Group = {
@@ -75,6 +80,8 @@ export type ChartNode = {
   stale: boolean
   /** True when the seat has no person attached at all. */
   vacant: boolean
+  /** True when an admin created this seat in the app rather than Ajera. */
+  manual: boolean
   /** Signed URL for the headshot, resolved separately and injected. */
   photoUrl: string | null
   /** Vetted profile link, or null. Drives the LinkedIn badge on the chart. */

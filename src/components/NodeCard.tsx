@@ -32,6 +32,7 @@ export function NodeCard(props: Props) {
     dimmed && 'is-dimmed',
     isDropTarget && 'is-drop-target',
     node.vacant && 'is-vacant',
+    node.manual && 'is-manual',
     node.stale && 'is-stale',
     isViewer && 'is-viewer',
     !node.title && 'is-compact',
@@ -50,6 +51,8 @@ export function NodeCard(props: Props) {
         // Group colour tints the card so a branch reads as one unit.
         ...(props.accent ? { '--node-accent': props.accent } : {}),
       } as React.CSSProperties}
+      // The dashed outline says "this box isn't from Ajera"; this says why.
+      title={node.manual ? 'Added by hand — this seat is not from Ajera' : undefined}
       // Admins drag boxes to re-parent them. For everyone else the chart is
       // inert — but that's presentation only; the database is what refuses
       // their writes.

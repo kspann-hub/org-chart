@@ -29,6 +29,7 @@ So the app owns a separate table, `public.org_positions`. One row per *seat*
 | `name_override` | Display name. `null` = use the Ajera legal name. |
 | `title_override` | Display title. `null` = use the Ajera title. |
 | `sort_order` | Left-to-right order among siblings. |
+| `source` | `ajera` = seeded or synced from the roster. `manual` = added in the app, and drawn with a white dashed outline. |
 
 `parent_id` is seeded from Ajera's `supervisor_employee_key` and then owned by
 the chart. That split is the point: the initial tree comes free, but an admin
@@ -163,6 +164,12 @@ Three things to do, in this order:
    `04_sync_and_history.sql`). It adds the `linkedin_url` column behind the
    **LinkedIn profile** box in the edit panel — one column on `org_positions`,
    so the existing read/write rules already cover it.
+4. Run [`supabase/06_manual_seats.sql`](supabase/06_manual_seats.sql). It adds
+   a `source` column recording whether a seat came from Ajera or was created
+   in the app. Seats you add by hand are then drawn in their vertical's colour
+   with a **white dashed outline**, and **Recent changes** can say whether a
+   new person arrived from a sync or was typed in. Until this runs, the app
+   works exactly as before — nothing is dashed and no arrival is labelled.
 
 **Groups are the verticals on the landing page.** A group is defined by one
 seat, its root, and membership is *nearest group-root ancestor* — not

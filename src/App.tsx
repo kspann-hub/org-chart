@@ -287,15 +287,28 @@ export default function App() {
     const effectiveParent = parentId ?? activeGroup?.root_position_id ?? null
 
     const siblings = positions.filter((p) => p.parent_id === effectiveParent)
-    const { data, error } = await supabase
-      .from('org_positions')
-      .insert({
-        parent_id: effectiveParent,
-        name_override: 'New seat',
-        sort_order: Math.max(0, ...siblings.map((s) => s.sort_order)) + 1,
-      })
-      .select()
-      .single()
+    const seat = {
+      parent_id: effectiveParent,
+      name_override: 'New seat',
+      sort_order: Math.max(0, ...siblings.map((s) => s.sort_order)) + 1,
+      // This is the only place a seat is created by a person, so it is the
+      // only place 'manual' is written. It's what draws the white dashes.
+      source: 'manual' as const,
+    }
+
+    let { data, error } = await supabase.from('org_positions').insert(seat).select().single()
+
+    // A database that hasn't had 06_manual_seats.sql run has no source column,
+    // and PostgREST rejects the whole insert for naming it. Adding a seat is
+    // more important than marking it, so drop the flag and try once more.
+    if (error?.code === 'PGRST204') {
+      const { source: _dropped, ...withoutSource } = seat
+      ;({ data, error } = await supabase
+        .from('org_positions')
+        .insert(withoutSource)
+        .select()
+        .single())
+    }
 
     if (error) return fail(error)
     await load()

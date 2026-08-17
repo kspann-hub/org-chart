@@ -1,5 +1,10 @@
 import type { HistoryEntry } from '../lib/types'
-import { describeChange, relativeTime } from '../lib/history'
+import {
+  ADDED_WINDOW_HOURS,
+  describeChange,
+  recentAdditions,
+  relativeTime,
+} from '../lib/history'
 
 type Props = {
   entries: HistoryEntry[]
@@ -13,6 +18,10 @@ type Props = {
 }
 
 export function HistoryPanel(props: Props) {
+  // Answered up front because it's the question people actually open this
+  // panel with. The full log below still lists these as ordinary additions.
+  const added = recentAdditions(props.entries)
+
   return (
     <aside className="panel">
       <div className="panel-head">
@@ -24,6 +33,42 @@ export function HistoryPanel(props: Props) {
           ✕
         </button>
       </div>
+
+      <section className="history-added">
+        <h3>
+          Added in the last {ADDED_WINDOW_HOURS} hours
+          {added.length > 0 && <span className="history-added-count">{added.length}</span>}
+        </h3>
+
+        {added.length === 0 ? (
+          <p className="history-added-none">
+            Nobody new. A sync that brings people in from Ajera, and anyone you
+            add by hand, both show up here.
+          </p>
+        ) : (
+          <ul className="history-added-list">
+            {added.map((person) => (
+              <li key={person.id}>
+                <span className="history-added-name">{person.name}</span>
+                {person.origin && (
+                  <span
+                    className={
+                      person.origin === 'manual'
+                        ? 'history-tag is-manual'
+                        : 'history-tag'
+                    }
+                  >
+                    {person.origin === 'manual' ? 'added by hand' : 'from Ajera'}
+                  </span>
+                )}
+                <span className="history-meta">
+                  {person.by} · {relativeTime(person.at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {props.entries.length === 0 ? (
         <p className="history-empty">

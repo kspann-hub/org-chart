@@ -94,7 +94,17 @@ function drawNode(
 
   ctx.beginPath()
   ctx.roundRect(node.x, cardTop, NODE_W, cardH, 12)
-  if (node.vacant) {
+  if (node.manual) {
+    // Same treatment as the screen: the vertical's colour, ringed in white
+    // dashes because the seat was added by hand rather than by Ajera.
+    ctx.fillStyle = accent
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([6, 4])
+    ctx.stroke()
+    ctx.setLineDash([])
+  } else if (node.vacant) {
     ctx.strokeStyle = '#43474e'
     ctx.lineWidth = 1
     ctx.setLineDash([5, 4])
@@ -110,7 +120,7 @@ function drawNode(
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  ctx.fillStyle = node.vacant ? '#9aa1ac' : '#ffffff'
+  ctx.fillStyle = node.vacant && !node.manual ? '#9aa1ac' : '#ffffff'
   ctx.font = '600 13px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
   ctx.fillText(ellipsize(ctx, node.name, NODE_W - 20), centreX, textTop)
 

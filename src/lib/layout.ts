@@ -59,6 +59,9 @@ export function joinNodes(
       // (terminated, or filtered out of the mart). Both count as stale.
       stale: Boolean(position.employee_key) && employee?.employment_status !== 'Active',
       vacant: !position.employee_key,
+      // Undefined on a database where 06_manual_seats.sql hasn't been run —
+      // which reads as "not hand-added", so every box just looks as it did.
+      manual: position.source === 'manual',
       photoUrl: position.photo_path ? photoUrls.get(position.photo_path) ?? null : null,
       linkedinUrl: linkedInHref(position.linkedin_url),
     }
