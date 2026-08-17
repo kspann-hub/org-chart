@@ -93,10 +93,11 @@ export function EditPanel(props: Props) {
       setError('Pick an image file.')
       return
     }
-    // Storage accepts far larger, but a 10MB headshot on 76 cards is a slow
-    // chart for everyone. Worth refusing rather than quietly allowing.
-    if (file.size > 5_000_000) {
-      setError('That image is over 5 MB. Please use a smaller one.')
+    // uploadHeadshot downscales in the browser, so what gets stored is ~20 KB
+    // whatever comes in here and a big original is no longer a problem for the
+    // chart. This only guards against decoding something absurd into memory.
+    if (file.size > 25_000_000) {
+      setError('That image is over 25 MB. Please use a smaller one.')
       return
     }
 

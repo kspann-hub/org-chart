@@ -25,6 +25,14 @@ export function Avatar({ node, size, title }: Props) {
         src={node.photoUrl}
         alt={node.name}
         title={title}
+        width={size}
+        height={size}
+        // The chart lays out every seat in the company, but most of them are
+        // scrolled well out of view — and a face nobody looks at should not be
+        // fetched. Together with the URL reuse in lib/photos, this is what stops
+        // panning around the chart from pulling all 78 headshots.
+        loading="lazy"
+        decoding="async"
         // A signed URL that expired mid-session shouldn't leave a broken-image
         // icon on the chart; drop back to the initials underneath.
         onError={(e) => {

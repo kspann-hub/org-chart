@@ -21,6 +21,13 @@ import { Home } from './components/Home'
 import { EditPanel } from './components/EditPanel'
 import { HistoryPanel } from './components/HistoryPanel'
 
+/** Whether two path -> signed-URL maps hold exactly the same entries. */
+function sameUrls(a: Map<string, string>, b: Map<string, string>): boolean {
+  if (a.size !== b.size) return false
+  for (const [path, url] of a) if (b.get(path) !== url) return false
+  return true
+}
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(false)
@@ -99,11 +106,18 @@ export default function App() {
     setIsAdmin(admin.data === true)
     setLoading(false)
 
-    // Headshots live in a private bucket, so each one needs a short-lived
-    // signed URL. Resolved after the chart is already on screen — initials
-    // show in the meantime rather than blocking the render.
+    // Headshots live in a private bucket, so each one needs a signed URL.
+    // Resolved after the chart is already on screen — initials show in the
+    // meantime rather than blocking the render.
     const paths = (seats.data ?? []).map((p) => p.photo_path).filter(Boolean) as string[]
-    setPhotoUrls(await signPhotoPaths(paths))
+    const nextUrls = await signPhotoPaths(paths)
+
+    // load() runs on mount, after every mutation, and on every realtime change
+    // to org_positions — so an admin dragging one box re-ran this for every open
+    // tab. Handing back a fresh Map each time recomputed the layout and gave
+    // every <img> a new src, which re-downloaded all 78 photos. Keeping the
+    // previous object when the URLs are unchanged makes that free.
+    setPhotoUrls((prev) => (sameUrls(prev, nextUrls) ? prev : nextUrls))
   }, [])
 
   useEffect(() => {
