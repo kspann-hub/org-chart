@@ -5,8 +5,10 @@ sees it; a short list of admins can edit it. Data comes from Supabase — the
 roster from `mart.employees` (built by the Ajera pipeline), the chart's shape
 from a table this app owns.
 
-Static site, no server. Hosting is GitHub Pages, database is Supabase. Both
-free at this size.
+Static site, no server. Hosting is GitHub Pages, database is Supabase.
+
+For how the pieces fit together, what Supabase costs to run, and the reasoning
+behind the decisions, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 
@@ -397,9 +399,24 @@ admin decides.
 | | |
 | --- | --- |
 | GitHub Pages | Free (public repo) |
-| Supabase free tier | Free — 500 MB database, 50k monthly active users |
-| **Total** | **$0** |
+| Supabase | **Pro**, since 2026-08-26 |
 
-A 76-person chart is nowhere near any of those limits. The realistic reason to
-ever pay is Supabase pausing a project after a week of zero activity on the
-free tier, which un-pauses from the dashboard.
+It ran on the free tier until August 2026, when it blew through the plan's 5 GB
+monthly **egress** ceiling and Supabase restricted the project — every endpoint
+returning HTTP 402, the whole app dark for nine days.
+
+The limit that bites on this stack is **egress — bytes leaving Supabase**, not
+database size and not user count. A 76-person chart will never trouble a 500 MB
+database or a 50,000-user limit. It can very easily serve 19 GB of images, and
+did: full-size headshots re-downloaded on every chart load.
+
+That is fixed (photos are now ~20 KB each, and cached properly rather than
+re-fetched daily), and Pro's allowance is far larger. But the failure mode is
+worth remembering, because from inside the browser a restricted project does not
+look like a billing problem — it looks like the app is broken.
+
+**Turn on the usage alert** under *Settings → Billing → Cost Control*. Last time
+the first symptom was the site going dark, with no warning.
+
+[ARCHITECTURE.md](ARCHITECTURE.md) has the full accounting: what generates
+egress, what each load costs now, and why.
