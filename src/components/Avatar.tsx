@@ -33,6 +33,11 @@ export function Avatar({ node, size, title }: Props) {
         // panning around the chart from pulling all 78 headshots.
         loading="lazy"
         decoding="async"
+        // Shares one browser cache entry with the PNG export, which has to set
+        // this to keep the canvas untainted. Browsers file CORS and non-CORS
+        // responses separately, so without it an export re-downloads every
+        // face the chart is already showing.
+        crossOrigin="anonymous"
         // A signed URL that expired mid-session shouldn't leave a broken-image
         // icon on the chart; drop back to the initials underneath.
         onError={(e) => {

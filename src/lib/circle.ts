@@ -33,6 +33,22 @@ const RING_STEP = 90
 const DISC_SIZE = [0, 34, 20, 13]
 const DOT_SIZE = 5
 
+/**
+ * Rings whose discs are worth downloading a photo for. Index < this gets one.
+ *
+ * Split from DISC_SIZE because the two questions are different. A ring-3 disc
+ * is 13px across — smaller than the label beside it, and a face at that size
+ * is a smudge nobody can identify. It still deserves a disc with initials; it
+ * does not deserve a network request.
+ *
+ * The distinction earns its keep because this is the landing page. SVG <image>
+ * has no lazy-loading (unlike the <img> in Avatar, which does), and the whole
+ * circle is inside the viewBox — so every photo a ring asks for is fetched
+ * immediately, on the one view every person lands on before they have chosen
+ * to look at anything.
+ */
+const PHOTO_RINGS = 3
+
 const CENTER_R = 66
 /** Degrees held open between one vertical's wedge and the next. */
 const WEDGE_GAP = 10
@@ -64,6 +80,9 @@ export type CircleNode = ChartNode & {
   /** Radius of the photo disc, or of the dot on the outer rings. */
   size: number
   hasDisc: boolean
+  /** Whether to fetch this seat's headshot. Always false past PHOTO_RINGS,
+   *  even though the disc is still drawn. */
+  hasPhoto: boolean
   accent: string
   wedgeKey: string
   childCount: number
@@ -296,6 +315,7 @@ export function layoutCircle(nodes: ChartNode[], groups: Group[]): CircleLayout 
     const r = radiusOf(p.ring)
     const [x, y] = at(r, angle)
     const hasDisc = p.ring < DISC_SIZE.length
+    const hasPhoto = p.ring < PHOTO_RINGS
     const nodeSize = hasDisc ? DISC_SIZE[p.ring] : DOT_SIZE
     const kids = childrenInWedge(p.id, p.wedgeKey)
 
@@ -307,6 +327,7 @@ export function layoutCircle(nodes: ChartNode[], groups: Group[]): CircleLayout 
       ring: p.ring,
       size: nodeSize,
       hasDisc,
+      hasPhoto,
       accent: node.vacant ? UNGROUPED_ACCENT : p.accent,
       wedgeKey: p.wedgeKey,
       childCount: kids.length,

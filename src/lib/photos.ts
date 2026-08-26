@@ -25,16 +25,30 @@ export const HEADSHOT_CACHE_CONTROL = '31536000'
 /**
  * How long a minted signed URL stays valid.
  *
- * Long enough for Supabase's CDN to be worth anything. The CDN keys its cache
- * on the entire URL including the token, so a freshly minted token is always a
- * miss and always billed as uncached egress — which is how 78 photos became
- * ~19 GB of it in a month. Combined with the reuse cache below, the second and
- * later views of a face become CDN hits instead.
+ * This number is the headshot bandwidth bill, almost by itself.
  *
- * A leaked URL still stops working the same day, which is the property the
- * original one-hour TTL was picked for.
+ * Both caches that matter key on the whole URL, token included. The browser's
+ * disk cache does — so the year-long cacheControl above only survives while the
+ * URL does, and a re-mint makes every face look like a file this browser has
+ * never seen. Supabase's CDN does too, and worse: each viewer's token differs,
+ * so no two people ever request the same URL and the CDN can never serve one
+ * colleague's photo to the next. Every first view of every face is billed as
+ * uncached origin egress, and the TTL sets how often "first view" comes round
+ * again.
+ *
+ * At the previous 86_400 that was daily: ~76 people re-downloading ~30 faces
+ * every day, forever, for images already sitting on their disks — roughly
+ * 17 GB/year against a 5 GB/month allowance. A week cuts that near sevenfold
+ * and costs one property: a URL someone deliberately forwards outside the
+ * company keeps working for seven days instead of one. It exposes that single
+ * headshot and nothing else — not the chart, not the directory — so for an
+ * internal chart of our own staff on a private bucket, that is the right trade.
+ *
+ * Raising this is free of UI consequences. Photos are permanent; expiry only
+ * decides how often signPhotoPaths quietly re-mints in the background, which
+ * nobody sees.
  */
-const SIGNED_URL_TTL_SECONDS = 86_400
+const SIGNED_URL_TTL_SECONDS = 604_800
 
 /** Re-mint once a URL is within an hour of expiring, so none goes stale while
  *  someone still has the tab open. */

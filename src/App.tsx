@@ -21,6 +21,17 @@ import { Home } from './components/Home'
 import { EditPanel } from './components/EditPanel'
 import { HistoryPanel } from './components/HistoryPanel'
 
+/**
+ * How long to wait for realtime events to stop arriving before reloading.
+ *
+ * Realtime sends one event per changed row, and load() is three whole-table
+ * selects plus an RPC. "Sync with Ajera" rewrites many seats in one go, so
+ * without this a sync ran that entire load once per changed row, in every tab
+ * anyone had open. Long enough to swallow a sync's burst, short enough that a
+ * single drag still looks instant to everyone else.
+ */
+const REALTIME_SETTLE_MS = 400
+
 /** Whether two path -> signed-URL maps hold exactly the same entries. */
 function sameUrls(a: Map<string, string>, b: Map<string, string>): boolean {
   if (a.size !== b.size) return false
@@ -127,17 +138,20 @@ export default function App() {
     // Viewers see an admin's edits without reloading. If Realtime isn't
     // enabled on the table this simply never fires — the app still works,
     // it just needs a refresh to pick up changes.
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const reload = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => void load(), REALTIME_SETTLE_MS)
+    }
+
     const channel = supabase
       .channel('org-chart')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_positions' }, () => {
-        void load()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_groups' }, () => {
-        void load()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_positions' }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'org_groups' }, reload)
       .subscribe()
 
     return () => {
+      clearTimeout(timer)
       void supabase.removeChannel(channel)
     }
   }, [session, load])

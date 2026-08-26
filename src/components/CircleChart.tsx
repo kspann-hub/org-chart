@@ -64,7 +64,7 @@ export function CircleChart(props: Props) {
         }}
       >
         <defs>
-          {layout.nodes.filter((n) => n.hasDisc && n.photoUrl).map((n) => (
+          {layout.nodes.filter((n) => n.hasPhoto && n.photoUrl).map((n) => (
             <clipPath key={n.id} id={`circle-clip-${n.id}`}>
               <circle cx={n.x} cy={n.y} r={n.size} />
             </clipPath>
@@ -213,7 +213,9 @@ function Node({ node, lit, selected, isViewer, showName, ...handlers }: NodeProp
   // expire mid-session. Initials sit underneath either way, so a photo that
   // never arrives just leaves them showing.
   const [photoFailed, setPhotoFailed] = useState(false)
-  const showPhoto = node.hasDisc && node.photoUrl && !photoFailed
+  // hasPhoto, not hasDisc: the outermost disc ring still draws a disc with
+  // initials, but a 13px face is unreadable and not worth downloading.
+  const showPhoto = node.hasPhoto && node.photoUrl && !photoFailed
   const { label } = node
 
   const classes = [
@@ -250,6 +252,11 @@ function Node({ node, lit, selected, isViewer, showName, ...handlers }: NodeProp
           {showPhoto && (
             <image
               href={node.photoUrl as string}
+              // Match the PNG export, which must set this to keep the canvas
+              // untainted. Browsers cache CORS and non-CORS responses under
+              // separate keys, so without it here every export re-downloads
+              // every face the chart just fetched.
+              crossOrigin="anonymous"
               x={node.x - node.size}
               y={node.y - node.size}
               width={node.size * 2}
