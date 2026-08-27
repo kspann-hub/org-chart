@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { CircleLayout, CircleNode } from '../lib/circle'
 import { bandLabel, bandPath, spokePath } from '../lib/circle'
 import { initials } from './Avatar'
+import { ZoomPane, type ZoomPaneHandle } from './ZoomPane'
 
 type Props = {
   layout: CircleLayout
@@ -23,6 +24,21 @@ const TEAM_RING = 4
 export function CircleChart(props: Props) {
   const { layout, showTeams } = props
   const [hoverId, setHoverId] = useState<string | null>(null)
+  const paneRef = useRef<ZoomPaneHandle>(null)
+
+  // The circle used to be sized in CSS to whatever would fit, so it was always
+  // whole and never zoomable. Now it is drawn at its own pixel size inside a
+  // pane, and "whole" is a starting zoom you can leave. Refit when the drawing
+  // itself resizes — a new ring, say — but not on every data change, or an
+  // admin's zoom would keep snapping back under them.
+  const fitFor = useRef(0)
+  useLayoutEffect(() => {
+    // Guard on the node count too, not just the size: an empty layout still
+    // reports a size, and marking that as fitted would skip the real one.
+    if (layout.nodes.length === 0 || fitFor.current === layout.size) return
+    fitFor.current = layout.size
+    paneRef.current?.fit()
+  }, [layout.size, layout.nodes.length])
 
   if (layout.nodes.length === 0) return null
 
@@ -53,9 +69,20 @@ export function CircleChart(props: Props) {
   const isLit = (id: string) => lit.has(id)
 
   return (
-    <div className="circle-stage">
+    <ZoomPane
+      ref={paneRef}
+      className="circle-stage"
+      contentWidth={layout.size}
+      contentHeight={layout.size}
+      padding={24}
+      // Dragging off a seat should not slide the circle out from under the
+      // click that was about to select it.
+      panIgnore=".cnode, .cband"
+    >
       <svg
         className={`circle-chart ${focused ? 'has-focus' : ''}`}
+        width={layout.size}
+        height={layout.size}
         viewBox={`0 0 ${layout.size} ${layout.size}`}
         role="img"
         aria-label={`Circular chart of ${layout.nodes.length} people across ${layout.wedges.length} verticals.`}
@@ -194,7 +221,7 @@ export function CircleChart(props: Props) {
           />
         ))}
       </svg>
-    </div>
+    </ZoomPane>
   )
 }
 
