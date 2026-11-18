@@ -267,20 +267,10 @@ export const ZoomPane = forwardRef<ZoomPaneHandle, Props>(function ZoomPane(prop
         <button aria-label="Zoom out" title="Zoom out" onClick={() => zoomTo(zoom / 1.25)}>
           −
         </button>
-        <input
-          className="zoom-slider"
-          type="range"
-          aria-label="Zoom"
-          min={Math.round(minZoom * 100)}
-          max={Math.round(maxZoom * 100)}
-          step={1}
-          value={percent}
-          onChange={(e) => zoomTo(Number(e.target.value) / 100)}
-        />
+        <span className="zoom-readout">{percent}%</span>
         <button aria-label="Zoom in" title="Zoom in" onClick={() => zoomTo(zoom * 1.25)}>
           +
         </button>
-        <span className="zoom-readout">{percent}%</span>
         <button className="zoom-fit" title="Fit the whole chart on screen" onClick={fit}>
           Fit
         </button>

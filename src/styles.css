@@ -391,7 +391,7 @@ button:disabled {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 4px 6px;
+  padding: 4px;
   box-shadow: var(--shadow);
 }
 
@@ -406,15 +406,6 @@ button:disabled {
 .zoom-controls button:hover {
   background: var(--accent-soft);
   color: var(--accent);
-}
-
-.zoom-slider {
-  width: 96px;
-  padding: 0;
-  border: none;
-  background: none;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .zoom-readout {
