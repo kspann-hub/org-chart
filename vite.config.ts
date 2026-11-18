@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// GitHub Pages serves this at https://<user>.github.io/<repo>/, so the repo
-// name has to be baked into the bundle's asset paths at build time.
-// Set VITE_BASE=/ if you later move it to a custom domain at the root.
+// Vercel serves the app at the root of its domain, so assets load from '/'.
+// VITE_BASE is only there in case it ever has to live under a sub-path again
+// (GitHub Pages, which hosted it until 2026-11, served it at /org-chart/).
 export default defineConfig({
   plugins: [react()],
-  base: process.env.VITE_BASE ?? '/org-chart/',
+  base: process.env.VITE_BASE ?? '/',
 })

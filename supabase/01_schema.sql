@@ -45,7 +45,7 @@ create table if not exists public.org_admins (
 
 -- >>> THE ADMIN LIST IS NOT IN THIS FILE. <<<
 --
--- This repository is public — GitHub Pages requires it on the free plan — so
+-- This repository is public, so
 -- the real addresses live in local-notes/admins.sql, which is gitignored.
 -- Run that file after this one.
 --

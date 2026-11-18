@@ -5,7 +5,7 @@ sees it; a short list of admins can edit it. Data comes from Supabase — the
 roster from `mart.employees` (built by the Ajera pipeline), the chart's shape
 from a table this app owns.
 
-Static site, no server. Hosting is GitHub Pages, database is Supabase.
+Static site, no server. Hosting is Vercel, database is Supabase.
 
 For how the pieces fit together, what Supabase costs to run, and the reasoning
 behind the decisions, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
@@ -131,9 +131,13 @@ under *Redirect URLs*. Without them the sign-in completes and then dumps
 people somewhere that isn't the app:
 
 ```
-http://localhost:5173/org-chart/
-https://<your-github-username>.github.io/org-chart/
+http://localhost:5173/
+https://<your-vercel-production-domain>/
+https://*-<your-vercel-team-slug>.vercel.app/**
 ```
+
+The third line covers Vercel's preview deployments, which get a new address
+every time. The team slug is the part after `vercel.com/` in the dashboard URL.
 
 #### What stops a personal Gmail account
 
@@ -240,29 +244,28 @@ git commit -m "Org chart"
 gh repo create org-chart --public --source=. --push
 ```
 
-Then, in the new repo on github.com:
+Then on vercel.com: **Add New → Project**, import the repo. It detects Vite on
+its own (build `npm run build`, output `dist`). Before the first build, add two
+**Environment Variables** — the same values as `.env`, because `.env` isn't
+committed — ticked for both **Production** and **Preview**:
 
-- **Settings → Pages → Source**: select **GitHub Actions**.
-- **Settings → Secrets and variables → Actions → New repository secret**, twice
-  — same two values as `.env`, because `.env` isn't committed and the build
-  runner needs them:
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-Push to `main` and the workflow in
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds and
-publishes to `https://<username>.github.io/org-chart/`.
+If the project was created before the variables were added, nothing has been
+built yet: **Deployments → ⋯ → Create Deployment**, branch `main`.
 
-If you name the repo something other than `org-chart`, the workflow picks the
-base path up from the repo name automatically — but update `vite.config.ts`'s
-fallback so local `npm run dev` matches.
+From then on, every push to `main` deploys to production, and every other
+branch gets its own preview address. Previews talk to the **same Supabase
+database** as production — an edit made on a preview link is a real edit.
 
 ---
 
 ## Why it's safe to publish the source
 
-GitHub Pages requires a public repo on the free plan, so the code is world
-readable. The data isn't:
+The repo is public, so the code is world readable. (GitHub Pages, the first
+host, required that; Vercel doesn't, so it could be made private — but nothing
+below depends on it staying secret.) The data isn't:
 
 - The **anon key** in the bundle is designed to be public. It identifies the
   project, it doesn't authorise anything.
@@ -398,7 +401,7 @@ admin decides.
 
 | | |
 | --- | --- |
-| GitHub Pages | Free (public repo) |
+| Vercel | ArcLab team's **Pro** plan |
 | Supabase | **Pro**, since 2026-08-26 |
 
 It ran on the free tier until August 2026, when it blew through the plan's 5 GB
