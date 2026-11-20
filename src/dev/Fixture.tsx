@@ -42,7 +42,8 @@ function fixture() {
       show_title: true,
       sort_order: n,
       photo_path: null,
-      linkedin_url: null,
+      // Every third seat has a profile, so the badge shows on some cards only.
+      linkedin_url: n % 3 === 1 ? 'https://www.linkedin.com/in/example-profile' : null,
       source: extra.manual ? 'manual' : 'ajera',
       updated_at: '2026-08-01T00:00:00Z',
       updated_by: null,
@@ -57,6 +58,7 @@ function fixture() {
         employee_type_description: null,
         is_supervisor: null,
         supervisor_key: null,
+        hire_date: `20${16 + (n % 9)}-${String((n % 12) + 1).padStart(2, '0')}-15`,
       })
     }
     return id
