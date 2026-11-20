@@ -5,7 +5,7 @@ sees it; a short list of admins can edit it. Data comes from Supabase — the
 roster from `mart.employees` (built by the Ajera pipeline), the chart's shape
 from a table this app owns.
 
-Static site, no server. Hosting is GitHub Pages, database is Supabase.
+Static site, no server. Hosting is Vercel, database is Supabase.
 
 For how the pieces fit together, what Supabase costs to run, and the reasoning
 behind the decisions, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
@@ -131,9 +131,13 @@ under *Redirect URLs*. Without them the sign-in completes and then dumps
 people somewhere that isn't the app:
 
 ```
-http://localhost:5173/org-chart/
-https://<your-github-username>.github.io/org-chart/
+http://localhost:5173/
+https://<your-vercel-production-domain>/
+https://*-<your-vercel-team-slug>.vercel.app/**
 ```
+
+The third line covers Vercel's preview deployments, which get a new address
+every time. The team slug is the part after `vercel.com/` in the dashboard URL.
 
 #### What stops a personal Gmail account
 
@@ -240,29 +244,28 @@ git commit -m "Org chart"
 gh repo create org-chart --public --source=. --push
 ```
 
-Then, in the new repo on github.com:
+Then on vercel.com: **Add New → Project**, import the repo. It detects Vite on
+its own (build `npm run build`, output `dist`). Before the first build, add two
+**Environment Variables** — the same values as `.env`, because `.env` isn't
+committed — ticked for both **Production** and **Preview**:
 
-- **Settings → Pages → Source**: select **GitHub Actions**.
-- **Settings → Secrets and variables → Actions → New repository secret**, twice
-  — same two values as `.env`, because `.env` isn't committed and the build
-  runner needs them:
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-Push to `main` and the workflow in
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds and
-publishes to `https://<username>.github.io/org-chart/`.
+If the project was created before the variables were added, nothing has been
+built yet: **Deployments → ⋯ → Create Deployment**, branch `main`.
 
-If you name the repo something other than `org-chart`, the workflow picks the
-base path up from the repo name automatically — but update `vite.config.ts`'s
-fallback so local `npm run dev` matches.
+From then on, every push to `main` deploys to production, and every other
+branch gets its own preview address. Previews talk to the **same Supabase
+database** as production — an edit made on a preview link is a real edit.
 
 ---
 
 ## Why it's safe to publish the source
 
-GitHub Pages requires a public repo on the free plan, so the code is world
-readable. The data isn't:
+The repo is public, so the code is world readable. (GitHub Pages, the first
+host, required that; Vercel doesn't, so it could be made private — but nothing
+below depends on it staying secret.) The data isn't:
 
 - The **anon key** in the bundle is designed to be public. It identifies the
   project, it doesn't authorise anything.
@@ -293,7 +296,13 @@ watch the network tab before signing in — every query should come back `[]`.
 
 ## Using it
 
-**The landing page** is the whole firm as one circle — every seat at once, no
+**The sidebar** is on every screen: search, **Overview**, **Full org chart**,
+one entry per vertical with its headcount, and at the bottom **Export PNG** and
+**Sign out** (plus **Sync with Ajera** and **Recent changes** for admins).
+Search matches every word you type, in any order; picking a result opens that
+person in their vertical's reporting tree, selected.
+
+**Overview** is the whole firm as one circle — every seat at once, no
 scrolling. Nothing sits at the centre except the firm itself: the verticals are
 peers, and putting the President in the middle would say the opposite. Each
 vertical owns a wedge sized by its headcount, its lead sits on the leadership
@@ -302,11 +311,12 @@ ring, and depth inside the vertical becomes distance from the middle
 in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
 
 - **Hover anyone** to light their line back to their vertical's lead, plus
-  their own direct reports. Click to keep it; the panel names their ring and
-  counts what's under them.
-- **Open a vertical** from the buttons beside the circle, or by clicking its
-  coloured band. That's where the tree views live — the circle answers "what
-  does this place look like", the tree answers "who reports to whom".
+  their own direct reports. Click to keep it. The panel beside the circle then
+  shows a lead's team (click a report for their details) or a person's
+  details, with **Show in tree** and **Map overview** to go further.
+- **Open a vertical** from the sidebar, or by clicking its coloured band. The
+  circle answers "what does this place look like"; a vertical answers "who
+  reports to whom". **Key** under the panel explains the rings and outlines.
 - **Teams** folds the outer rings away. Nobody moves when it does: the wedges
   are pinned by headcount, so folding isn't a re-layout.
 - Headshots show on the inner three rings — largest for the leads, smallest for
@@ -317,6 +327,21 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
   flattened into the fourth, and seats belonging to no vertical get their own
   wedge instead of vanishing from a page that claims to show everyone.
 
+**A vertical** opens on its **map overview**: headcount, managers, average
+team size and how many seats need attention (not active in Ajera, or vacant),
+then the reporting line as columns — lead, managers, and each manager's team
+as a compact box of names. Click anyone to see them in the **reporting tree**,
+the pan-and-zoom chart that admins edit.
+
+**Test mode** on the map overview is a sandbox: click a person, then *Move …
+here* on another manager's team, and the map redraws as if you had. The moves
+are listed with an undo each. Nothing is saved — not to the chart, not to
+Ajera — and leaving the page or **Exit test mode** throws the copy away.
+
+**Full org chart** shows every vertical the same way, folded to leads and
+their managers; open any seat with its `+` tab, or **Expand all**. **Tree
+view** switches to the whole company as one reporting tree.
+
 **Everyone**
 
 - **Find me** jumps to your own box, which is also outlined and tagged *You*.
@@ -324,22 +349,27 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
   so it quietly does nothing for anyone whose Ajera email doesn't match the
   address they sign in with.
 - Search by name, title or email. It also searches the Ajera legal name, so
-  looking up "Samuel" still finds the box that displays "Sam". Enter jumps to
-  the first match.
-- Scroll to zoom, drag the background to pan, **Fit** to see the whole thing.
+  looking up "Samuel" still finds the box that displays "Sam". Enter opens the
+  first match.
+- In the tree, scroll to move, Ctrl + scroll to zoom, drag the background to
+  pan, **Fit** to see the whole thing.
 - The `−` / `+N` bubble on a box collapses or expands that branch.
 - **Top-down / Left-to-right** switches orientation, remembered per browser.
   Left-to-right is the default because a 76-person top-down tree is roughly
   18,000px wide — depth becomes width (four or five columns whatever the
   headcount) and headcount becomes height, which scrolls naturally.
-- **↓ PNG** downloads the current view as an image, including whatever is
+- **Export PNG** downloads the current vertical (or everyone) as an image, including whatever is
   collapsed and whichever orientation you're in. It's drawn from the layout
   data onto a canvas at 2× rather than screenshotting the page, so it stays
   sharp when scaled into a deck. A headshot that fails CORS is skipped and
   that card falls back to initials rather than failing the export.
 - **Print** produces a clean copy with the UI chrome stripped out.
 
-**Admins** (an `Admin` chip appears in the header)
+**Admins** (an `Admin` chip appears beside your email in the sidebar)
+
+- **Recent changes** is its own page: every edit, newest first, filterable by
+  moves, additions, edits and deletions, each with **Undo**. Beside it, who was
+  added in the last 24 hours and a **Sync now** button.
 
 - **Drag a box onto another** to change who it reports to. Dropping on empty
   canvas moves it to the top level. Boxes you can't legally drop on — the
@@ -398,7 +428,7 @@ admin decides.
 
 | | |
 | --- | --- |
-| GitHub Pages | Free (public repo) |
+| Vercel | ArcLab team's **Pro** plan |
 | Supabase | **Pro**, since 2026-08-26 |
 
 It ran on the free tier until August 2026, when it blew through the plan's 5 GB

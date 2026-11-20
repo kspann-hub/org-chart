@@ -13,6 +13,10 @@
   --warn: #e3b341;
   --warn-soft: #37300f;
   --danger: #f27a72;
+  /* Test mode only: the sandbox copy of a vertical. */
+  --test: #a78bfa;
+  --test-soft: #2a2340;
+  --test-text: #c4b5fd;
   --node-accent: #2f5fd0;
   --radius: 8px;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
@@ -26,7 +30,7 @@
 
 body {
   margin: 0;
-  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 430 14px/1.5 Roboto, system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -179,136 +183,6 @@ button:disabled {
   margin: 12px 0 0;
 }
 
-/* ------------------------------------------------------------------- shell */
-
-/* Flex, not grid with fixed rows: the error banner is conditional, so a
-   positional `grid-template-rows` assigns the wrong row to every child
-   whenever it's absent — which is nearly always. */
-.app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.boot {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  color: var(--text-soft);
-  padding: 40px;
-  text-align: center;
-}
-
-/* Wraps on purpose. An admin on a laptop now has brand, search, orientation,
-   Find me, count, Sync, Recent changes, Add, All groups, PNG and Sign out in
-   this row — without wrapping, the ones on the right get squeezed to slivers
-   or pushed off the edge entirely, which reads as "the new buttons aren't
-   there". */
-.topbar {
-  flex: 0 0 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  row-gap: 8px;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-
-/* Buttons keep their full label rather than shrinking to fit. */
-.topbar button {
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
-
-/* The spacer only does its job on a row wide enough to have slack; once the
-   bar wraps it would otherwise force a near-empty second line. */
-@media (max-width: 1100px) {
-  .topbar .spacer {
-    flex-basis: 100%;
-    height: 0;
-  }
-}
-
-.topbar h1 {
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.spacer {
-  flex: 1;
-}
-
-.search {
-  position: relative;
-  width: 240px;
-}
-
-.search-count {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  color: var(--text-soft);
-}
-
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 999px;
-  padding: 3px 9px;
-}
-
-.banner {
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  background: var(--warn-soft);
-  color: var(--warn);
-  border-bottom: 1px solid var(--line);
-}
-
-/* Same shape as the error banner, but blue — a sync result is information,
-   not a problem, and the two shouldn't read the same at a glance. */
-.banner.is-notice {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-/* flex:1 takes the leftover height; min-height:0 lets it shrink below its
-   content so the chart scrolls internally instead of pushing the footer off. */
-.body {
-  flex: 1 1 auto;
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.statusbar {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 18px;
-  padding: 7px 16px;
-  font-size: 12px;
-  color: var(--text-soft);
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-}
-
-.statusbar span:last-child {
-  margin-left: auto;
-}
-
 /* --------------------------------------------------------------- zoom pane */
 /* The scrollable, zoomable box the circle and the tree both live in. It
    scrolls natively so the bars are real: they are the only thing on screen
@@ -391,7 +265,7 @@ button:disabled {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 4px 6px;
+  padding: 4px;
   box-shadow: var(--shadow);
 }
 
@@ -406,15 +280,6 @@ button:disabled {
 .zoom-controls button:hover {
   background: var(--accent-soft);
   color: var(--accent);
-}
-
-.zoom-slider {
-  width: 96px;
-  padding: 0;
-  border: none;
-  background: none;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .zoom-readout {
@@ -645,13 +510,6 @@ button:disabled {
 /* The landing page: the whole firm as one circle, with a way into each
    vertical beside it. See lib/circle.ts for why it is shaped this way. */
 
-.home {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  min-height: 0;
-}
-
 .circle-stage {
   background: radial-gradient(circle at 50% 48%, #1b1d20 0%, var(--bg) 62%);
 }
@@ -869,216 +727,6 @@ button:disabled {
   stroke-width: 2.2;
 }
 
-/* -------------------------------------------------------------- home rail */
-
-.home-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 16px;
-  overflow-y: auto;
-  background: var(--surface);
-  border-left: 1px solid var(--line);
-}
-
-.home-toggles {
-  display: flex;
-  gap: 8px;
-}
-
-.rail-eyebrow {
-  margin: 0 0 8px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-soft);
-}
-
-.rail-readout {
-  display: flex;
-  gap: 11px;
-  min-height: 118px;
-  padding: 12px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.rail-readout-body {
-  min-width: 0;
-}
-
-.rail-readout h2 {
-  margin: 0;
-  font-size: 15.5px;
-}
-
-.rail-role {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  color: var(--text-soft);
-}
-
-.rail-hint {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-soft);
-}
-
-.rail-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.rail-pill {
-  padding: 3px 8px;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--text-soft);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-}
-
-.rail-pill.is-you {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.rail-pill.is-stale {
-  color: var(--warn);
-  border-color: var(--warn);
-}
-
-.vertical-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vertical-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  text-align: left;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-left: 3px solid;
-  border-radius: var(--radius);
-  transition: background 0.12s;
-}
-
-.vertical-btn:hover {
-  background: var(--surface);
-}
-
-.vertical-btn-body {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.vertical-name {
-  font-weight: 600;
-  font-size: 13.5px;
-}
-
-.vertical-meta {
-  font-size: 11.5px;
-  color: var(--text-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vertical-open {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.ring-list {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.ring-row {
-  display: grid;
-  grid-template-columns: 16px 1fr auto;
-  align-items: center;
-  gap: 9px;
-  font-size: 12.5px;
-}
-
-.ring-row i {
-  justify-self: center;
-  background: #3a3d43;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 50%;
-}
-
-.ring-row span {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
-  color: var(--text-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.home-footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-@media (max-width: 980px) {
-  .home {
-    grid-template-columns: minmax(0, 1fr);
-    overflow-y: auto;
-  }
-
-  .home-rail {
-    border-left: 0;
-    border-top: 1px solid var(--line);
-    overflow: visible;
-  }
-
-  /* The page scrolls as one column here, so the pane's row is auto-sized and
-     it has no height of its own to fit the circle into. Give it one. */
-  .home .zoom-viewport {
-    height: 70vh;
-  }
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 15px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.brand-mark {
-  color: var(--accent);
-}
-
-.brand-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.count-readout {
-  font-size: 12px;
-  color: var(--text-soft);
-}
-
 /* ------------------------------------------------------------ photo controls */
 
 .field {
@@ -1230,159 +878,1452 @@ button:disabled {
   color: var(--accent);
 }
 
-/* --------------------------------------------------------- change history */
+/* =================================================================== shell */
+/* The sidebar and the page beside it. Sizes, colours and type follow the
+   "Org chart redesign" canvas in Claude Design: Roboto, 14/1.5 body, 11px
+   600 eyebrows, 12px cards, 6px controls. */
 
-/* Who arrived recently, pulled out above the full log. Boxed rather than
-   listed inline so it reads as an answer to its own question and not as the
-   first few entries of the log below it. */
-.history-added {
-  padding: 10px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-}
-
-.history-added h3 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text-soft);
-}
-
-.history-added-count {
-  padding: 0 6px;
-  font-size: 11px;
-  color: var(--bg);
-  background: var(--accent);
-  border-radius: 999px;
-}
-
-.history-added-none {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: var(--text-soft);
-}
-
-.history-added-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.shell {
+  min-height: 100vh;
   display: grid;
-  gap: 6px;
+  grid-template-columns: 272px minmax(0, 1fr);
 }
 
-.history-added-list li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 13px;
-}
-
-.history-added-name {
-  font-weight: 600;
-}
-
-/* Which way someone arrived: from a sync, or typed in by an admin. The
-   hand-added tag borrows the chart's white dashes so the two read as the
-   same fact in two places. */
-.history-tag {
-  padding: 1px 6px;
-  font-size: 10.5px;
-  letter-spacing: 0.02em;
-  color: var(--text-soft);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-}
-
-.history-tag.is-manual {
-  color: var(--text);
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.75);
-}
-
-.history-empty {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 13px;
-}
-
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.boot {
   display: grid;
-  gap: 6px;
+  place-items: center;
+  min-height: 60vh;
+  color: var(--text-soft);
+  padding: 40px;
+  text-align: center;
 }
 
-.history-item {
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.banner {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 24px 0;
+  padding: 8px 8px 8px 16px;
+  border-radius: 8px;
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 
-/* Undone entries stay in the list rather than disappearing — the log is a
-   record of what happened, including the corrections. */
-.history-item.is-undone {
-  opacity: 0.55;
+/* Same shape as the error banner, but blue — a sync result is information,
+   not a problem, and the two shouldn't read the same at a glance. */
+.banner.is-notice {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.history-item.is-undone .history-what {
-  text-decoration: line-through;
+/* ------------------------------------------------------------------ sidebar */
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px 16px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
 }
 
-.history-text {
+.sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.sb-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
   display: grid;
-  gap: 2px;
+  place-items: center;
+}
+
+.sb-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.sb-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.sb-sub {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.sb-eyebrow,
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.sb-nav .sb-eyebrow {
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+
+.sb-search {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.sb-search input {
+  min-height: 36px;
+  padding: 0 12px;
+  background: var(--bg);
+}
+
+.sb-results {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.sb-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.sb-result:hover {
+  background: var(--line);
+}
+
+.sb-result-text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
-.history-what {
-  font-size: 13px;
-  line-height: 1.35;
+.sb-result-name {
+  font-weight: 600;
 }
 
-.history-meta {
-  font-size: 11.5px;
+.sb-result-title {
+  font-size: 12px;
   color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-noresult {
+  padding: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.sb-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sb-foot {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.nav:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.nav.is-on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-count,
+.mono {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.sb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.sb-email {
+  margin: 8px 12px 0;
+  font-size: 12px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------- page chrome */
+
+.page {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.page-title h1,
+.h-dot {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.h-dot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lede,
+.muted {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.page-actions,
+.row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.crumb {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font: inherit;
+  text-decoration: underline;
+}
+
+.crumb:hover {
+  color: var(--text);
+}
+
+.h-sm,
+.h-md {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.h-sm {
+  font-size: 16px;
+}
+
+.h-md {
+  font-size: 20px;
+}
+
+.meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.strong {
+  margin: 0;
+  font-weight: 600;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.spread {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spread.wrap {
+  flex-wrap: wrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card {
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.card.pad {
+  padding: 20px;
+}
+
+/* Main column plus a side column; the side drops under it when narrow. */
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.split > :first-child {
+  flex: 999 1 560px;
+}
+
+.split-side {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dot.lg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ------------------------------------------------------------------ buttons */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn.sm {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.btn.is-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.is-primary:hover:not(:disabled) {
+  background: #3f7be6;
+  color: #fff;
+}
+
+.btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Test mode is the one place the chart pretends; it's purple so nobody
+   mistakes the sandbox for the real thing. */
+.btn.is-test,
+.btn.is-test[aria-pressed='true'] {
+  border-color: var(--test);
+  color: var(--test-text);
+  background: var(--test-soft);
+}
+
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.seg .btn {
+  min-height: 30px;
+  border: 0;
+  background: none;
+}
+
+.seg .btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+}
+
+.chipbtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chipbtn:hover {
+  color: var(--text);
+}
+
+.chipbtn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.link,
+.back {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 600;
+}
+
+.link {
+  color: var(--accent);
+  font-size: 13px;
+  text-align: left;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.back {
+  align-self: flex-start;
+  padding: 4px 8px;
+  margin: -4px 0 -4px -8px;
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.back:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.tag {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.tag.is-manual {
+  border-style: dashed;
+}
+
+.tag.is-ajera {
+  background: #123a36;
+  border-color: #123a36;
+  color: #5eead4;
+}
+
+.tag.is-move,
+.tag.is-you {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag.is-you {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* ---------------------------------------------------------------- overview */
+
+.circle-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  height: clamp(480px, calc(100vh - 190px), 1100px);
+  background: var(--bg);
+}
+
+.circle-card .zoom-viewport {
+  height: 100%;
+}
+
+/* Pin the zoom buttons to the card, not to the scrolling viewport — inside
+   the viewport they scroll away with the chart as soon as you move it. */
+.circle-card .zoom-viewport,
+.tree-card .zoom-viewport {
+  position: static;
+}
+
+.tree-card {
+  position: relative;
+}
+
+.circle-card .zoom-controls,
+.tree-card .zoom-controls {
+  right: 20px;
+  bottom: 20px;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.who h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.who-text {
+  min-width: 0;
+}
+
+/* A headshot with its vertical's colour around it. */
+.ringed {
+  display: inline-grid;
+  flex: none;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+}
+
+.ringed .avatar {
+  border: 0;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill.muted {
+  color: var(--text-soft);
+}
+
+.pill.is-stale {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.pill.is-vacant {
+  border-style: dashed;
+  color: var(--text-soft);
+}
+
+.plist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -8px;
+}
+
+.plist-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px 4px;
+}
+
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.prow:hover {
+  background: var(--line);
+}
+
+.prow svg {
+  color: var(--text-soft);
+  flex: none;
+}
+
+.prow-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.prow-name {
+  font-weight: 600;
+}
+
+.prow-sub {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  font-size: 13px;
+}
+
+.facts dt {
+  color: var(--text-soft);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.facts a {
+  color: var(--accent);
+}
+
+.key summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+.key summary::-webkit-details-marker {
+  display: none;
+}
+
+.key summary svg {
+  color: var(--text-soft);
+}
+
+.key summary:hover {
+  background: var(--line);
+}
+
+.key-chev {
+  margin-left: auto;
+  display: inline-flex;
+  transition: transform 0.15s;
+}
+
+.key[open] .key-chev {
+  transform: rotate(180deg);
+}
+
+.key-body {
+  padding: 4px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.key-body hr {
+  width: 100%;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.key-rings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.key-disc {
+  justify-self: center;
+  border-radius: 50%;
+  background: #3a3d43;
+  border: 1.5px solid var(--line-strong);
+}
+
+.key-legend {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.key-ring {
+  justify-self: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+}
+
+.key-ring.is-stale {
+  border: 1.5px dashed var(--warn);
+}
+
+.key-ring.is-vacant {
+  border: 1.5px dashed var(--line-strong);
+}
+
+/* ------------------------------------------------------------------ stats */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-num {
+  font-size: 32px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.stat-num.is-warn {
+  color: var(--warn);
+}
+
+/* ------------------------------------------------------------ reporting map */
+/* Nested flex rows with CSS connectors: a stub out of each card, and a
+   vertical spine down the left of each column of children. */
+
+.hscroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.rmap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Cards keep their width; the column of children, and finally the team box
+   at the end of each line, take whatever is left. Below their minimums the
+   whole map scrolls sideways inside .hscroll instead of squashing. */
+.rmap-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.rmap-br {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rmap-it {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 6px 0 6px 24px;
+}
+
+.rmap-it::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 24px;
+  border-top: 1.5px solid var(--line-strong);
+}
+
+.rmap-it::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1.5px solid var(--line-strong);
+}
+
+.rmap-it.is-first::after {
+  top: 50%;
+}
+
+.rmap-it.is-last::after {
+  bottom: 50%;
+}
+
+.rmap-it.is-only::after {
+  display: none;
+}
+
+.rmap-stub {
+  width: 24px;
+  flex: none;
+  border-top: 1.5px solid var(--line-strong);
+}
+
+.rmap-cardwrap {
+  position: relative;
+  flex: none;
+}
+
+.rmap-node {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 220px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+}
+
+.rmap-node:hover:not(:disabled) {
+  border-color: var(--line-strong);
+}
+
+.rmap-node:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.rmap-node.is-lead {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+}
+
+.rmap-node.is-lead .rmap-name {
+  font-size: 16px;
+}
+
+.rmap-node.is-small {
+  padding: 8px 12px;
+}
+
+.rmap-node.is-stale {
+  box-shadow: inset 0 -3px 0 var(--warn);
+}
+
+.rmap-node.is-vacant,
+.rmap-node.is-manual {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+
+.rmap-node.is-you {
+  border-color: var(--accent);
+}
+
+.rmap-node-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rmap-name {
+  font-weight: 600;
+}
+
+.rmap-sub {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.rmap-flag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.rmap-tog {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  z-index: 1;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rmap-tog:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rmap-team {
+  flex: 1 1 280px;
+  min-width: 280px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rmap-team.is-test {
+  border: 1px dashed #6d5fa8;
+}
+
+.rmap-team-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.rmap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip-name .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.chip-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.chip.is-stale {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.chip.is-stale .chip-sub {
+  color: #c9a03a;
+}
+
+.chip.is-vacant,
+.chip.is-manual {
+  border-style: dashed;
+}
+
+.chip.is-vacant {
+  color: var(--text-soft);
+}
+
+.chip.is-you {
+  border-color: var(--accent);
+}
+
+.chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chip.is-on .chip-sub {
+  color: #7aa8fa;
+}
+
+.chip.is-moved {
+  border-style: dashed;
+  border-color: var(--test);
+}
+
+.chip.is-moved .chip-sub {
+  color: var(--test-text);
+}
+
+.testbox {
+  padding: 16px 20px;
+  background: #211c33;
+  border: 1px dashed var(--test);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.testbox .strong {
+  color: #ede9fe;
+}
+
+.testbox .meta,
+.testbox .eyebrow {
+  color: var(--test-text);
+}
+
+.test-change {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #3a3150;
+  font-size: 13px;
+}
+
+.test-change .btn {
+  margin-left: auto;
+}
+
+.vrow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vrow + .vrow {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.vlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+/* -------------------------------------------------------------------- tree */
+
+.tree-wrap {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  height: clamp(480px, calc(100vh - 190px), 1400px);
+}
+
+.tree-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.tree-card .zoom-viewport {
+  flex: 1;
+  min-height: 0;
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.tree-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.tree-bar b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hints,
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sw {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--node-accent);
+}
+
+.sw.is-manual {
+  outline: 1.5px dashed #fff;
+  outline-offset: -3px;
+}
+
+.sw.is-vacant {
+  background: none;
+  border: 1px dashed var(--line-strong);
+}
+
+.sw.is-stale {
+  box-shadow: inset 0 -3px 0 var(--warn);
+}
+
+/* The edit panel, docked beside the tree as a card of its own. */
+.tree-wrap .panel {
+  flex: 0 0 330px;
+  width: 330px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+/* ----------------------------------------------------------- change log */
+
+.log {
+  overflow: hidden;
+}
+
+.log-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px;
+}
+
+.log-head h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.log-day {
+  margin: 0;
+  padding: 16px 20px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  border-top: 1px solid var(--line);
+}
+
+.log-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.log-ico {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--line);
+  color: var(--text-soft);
+}
+
+.log-ico.is-move {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.log-what {
+  margin: 0;
+}
+
+.log-what b {
+  font-weight: 600;
+}
+
+.log-row.is-undone .log-what {
+  color: var(--text-soft);
+  text-decoration: line-through;
+}
+
+.log-empty {
+  margin: 0;
+  padding: 16px 20px 20px;
+  color: var(--text-soft);
+  border-top: 1px solid var(--line);
+}
+
+.log-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.count-pill {
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 12px/22px 'Roboto Mono', ui-monospace, monospace;
+  text-align: center;
+}
+
+.added-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.added-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.added-row + .added-row {
+  border-top: 1px solid var(--line);
+}
+
+/* ------------------------------------------------------------- narrow */
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .page {
+    padding: 16px;
+  }
+
+  .tree-wrap {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .tree-card {
+    height: 70vh;
+  }
+
+  .tree-wrap .panel {
+    flex: none;
+    width: auto;
+  }
 }
 
 /* ------------------------------------------------------------------- print */
 
 @media print {
-  .topbar,
-  .statusbar,
+  .sidebar,
+  .page-actions,
   .panel,
   .zoom-controls,
   .node-toggle,
   .banner,
-  .home-rail {
+  .tree-bar,
+  .split-side {
     display: none !important;
   }
 
-  .app,
+  .shell {
+    display: block;
+  }
+
+  .tree-wrap,
+  .circle-card,
   .zoom-viewport {
     height: auto;
     overflow: visible;
   }
 
-  /* The circle prints as the circle. The rail is a set of controls, and the
-     gradient just costs toner. */
-  .home {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .circle-stage {
+  .circle-stage,
+  .tree-card .zoom-viewport {
     background: none;
   }
 

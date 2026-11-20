@@ -27,7 +27,7 @@ Three systems. Only one of them is ours to change.
                                        |
                                        | read
                                        v
-                                  SUPABASE                      GITHUB PAGES
+                                  SUPABASE                      VERCEL
                                   |- org_positions  <---------  the app
                                   |- org_groups         data    (static HTML + JS,
                                   |- org_admins         + auth   no server of ours)
@@ -35,7 +35,7 @@ Three systems. Only one of them is ours to change.
                                   '- headshots bucket
 ```
 
-**There is no backend of ours.** The app is a static bundle on GitHub Pages —
+**There is no backend of ours.** The app is a static bundle on Vercel —
 no server, no API layer, nothing to keep running. The browser talks to Supabase
 directly, and Supabase's own row-level security is the only thing standing
 between a visitor and the data.
@@ -222,8 +222,9 @@ enforced in JavaScript is enforced nowhere. Every rule that matters is a policy
 or a grant.
 
 **The repo is public.**
-GitHub Pages requires it on the free plan. That is safe *because* of the point
-above — but it is also why `org_admins` is populated by hand rather than
+GitHub Pages, the original host, required it on the free plan. Vercel (the host
+since 2026-11) doesn't, so going private is now an option rather than a
+migration. Public is safe *because* of the point above — but it is also why `org_admins` is populated by hand rather than
 committed, and why no service-role key exists anywhere in the tree. The headshot
 backfill runs in an admin's browser for exactly that reason: there is no
 credential a Node script could have used.
