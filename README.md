@@ -348,6 +348,24 @@ Ajera — and leaving the page or **Exit test mode** throws the copy away.
 their managers; open any seat with its `+` tab, or **Expand all**. **Tree
 view** switches to the whole company as one reporting tree.
 
+**CriticalArc map** (sidebar, or the third tab on Full org chart) puts everyone
+at their home base and every Ajera project at its location: active (teal,
+including WorkHold/Hold), potential (orange, Preliminary/Marketing) and past
+(grey, Closed). Click a pin for who or what is there, a person for their card
+plus the projects they've charged time to in the last two weeks, a project for
+who's on it. Needs `supabase/10_map.sql`.
+
+- **Home base** is typed in by an admin on each seat (pencil, then Home base,
+  as "City, ST"). Ajera has no home location, so until it's set the map uses
+  the project location they charged the most hours to in the last 90 days, and
+  the card says "from timesheets".
+- Locations are matched against the Census Bureau's list of US places
+  (`src/data/places.json`), in the browser, with no geocoding service. A
+  location that's only a state sits mid-state; "Multiple" or blank isn't
+  placed, and the summary counts those.
+- Hours per person per project are visible to every signed-in employee. To
+  make them admin-only, see the note at the top of `10_map.sql`.
+
 **Everyone**
 
 - **Find me** jumps to your own box, which is also outlined and tagged *You*.

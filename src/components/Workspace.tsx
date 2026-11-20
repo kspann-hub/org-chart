@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import type {
   ChartNode,
   Employee,
   Group,
   HistoryEntry,
+  MapHours,
+  MapProject,
   Orientation,
   SyncResult,
 } from '../lib/types'
@@ -33,6 +35,8 @@ export type WorkspaceActions = {
   sync: () => Promise<void>
   loadHistory: () => Promise<void>
   undo: (entry: HistoryEntry) => Promise<void>
+  /** Fetch the CriticalArc map's projects and hours (10_map.sql's views). */
+  loadMap: () => Promise<void>
   signOut: () => void
   fail: (e: unknown) => void
 }
@@ -55,10 +59,17 @@ type Props = {
   undoing: string | null
   syncing: boolean
   lastSync: { result: SyncResult; at: string } | null
+  map: { projects: MapProject[]; hours: MapHours[] } | null
+  mapLoading: boolean
+  mapError: string | null
   actions: WorkspaceActions
 }
 
 const SEARCH_LIMIT = 8
+
+// The map brings the US outline and the Census list of places with it — about
+// 400 KB — so it loads only when someone opens that tab.
+const CAMap = lazy(() => import('./CAMap').then((m) => ({ default: m.CAMap })))
 
 function readOrientation(): Orientation {
   try {
@@ -115,6 +126,12 @@ export function Workspace(props: Props) {
   }, [page, activeGroup, props.loading])
 
   const isTree = (page.kind === 'group' || page.kind === 'all') && page.mode === 'tree'
+
+  const onMapTab = page.kind === 'all' && page.mode === 'places'
+  const { map, mapLoading, mapError } = props
+  useEffect(() => {
+    if (onMapTab && !map && !mapLoading && !mapError) void actions.loadMap()
+  }, [onMapTab, map, mapLoading, mapError, actions])
 
   // Opening a vertical charts only its members. The group's root loses its
   // parent from the visible set and becomes the top of the chart, which is
@@ -330,7 +347,7 @@ export function Workspace(props: Props) {
   const personCard = (
     id: string,
     onSelect: (id: string | null) => void,
-    opts: { inTree?: boolean } = {},
+    opts: { inTree?: boolean; extra?: (shownId: string) => React.ReactNode } = {},
   ) => (
     <PersonCard
       id={id}
@@ -339,6 +356,7 @@ export function Workspace(props: Props) {
       onShowInTree={opts.inTree ? undefined : openInTree}
       onShowMap={(g) => navigate({ kind: 'group', id: g, mode: 'map' })}
       renderEditor={renderEditor}
+      extra={opts.extra}
     />
   )
 
@@ -504,6 +522,18 @@ export function Workspace(props: Props) {
         viewerIds={viewerIds}
         treeControls={treeControls}
         tree={tree}
+        places={
+          <Suspense fallback={<div className="boot">Loading the map…</div>}>
+            <CAMap
+              nodes={nodes}
+              projects={map?.projects ?? null}
+              hours={map?.hours ?? null}
+              loading={mapLoading || (!map && !mapError)}
+              error={mapError}
+              personCard={(id, onSelect, extra) => personCard(id, onSelect, { extra })}
+            />
+          </Suspense>
+        }
       />
     )
   }
@@ -878,8 +908,8 @@ function CompanyPage(props: {
   rows: CompanyRow[]
   total: number
   verticalCount: number
-  mode: 'map' | 'tree'
-  onMode: (mode: 'map' | 'tree') => void
+  mode: 'map' | 'tree' | 'places'
+  onMode: (mode: 'map' | 'tree' | 'places') => void
   onBack: () => void
   onOpen: (id: string) => void
   side: React.ReactNode
@@ -887,6 +917,8 @@ function CompanyPage(props: {
   viewerIds: Set<string>
   treeControls: React.ReactNode
   tree: React.ReactNode
+  /** The CriticalArc map, the page's third view. */
+  places: React.ReactNode
 }) {
   const forests = useMemo(
     () => props.rows.map((r) => ({ row: r, forest: buildForest(r.members) })),
@@ -914,15 +946,17 @@ function CompanyPage(props: {
             <button type="button" className="crumb" onClick={props.onBack}>
               Overview
             </button>{' '}
-            · Full org chart
+            · {props.mode === 'places' ? 'CriticalArc map' : 'Full org chart'}
           </p>
-          <h1>Full org chart</h1>
+          <h1>{props.mode === 'places' ? 'CriticalArc map' : 'Full org chart'}</h1>
           <p className="lede">
             {props.total} people across {props.verticalCount}{' '}
             {props.verticalCount === 1 ? 'vertical' : 'verticals'}.{' '}
             {props.mode === 'map'
               ? 'Use + on any seat to open the level below it.'
-              : 'The whole company as one reporting tree, coloured by vertical.'}
+              : props.mode === 'tree'
+                ? 'The whole company as one reporting tree, coloured by vertical.'
+                : "Everyone at their home base, and the projects they're charging time to."}
           </p>
         </div>
         <div className="page-actions">
@@ -947,8 +981,16 @@ function CompanyPage(props: {
             >
               Tree view
             </button>
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={props.mode === 'places'}
+              onClick={() => props.onMode('places')}
+            >
+              CriticalArc map
+            </button>
           </div>
-          {props.mode === 'map' ? (
+          {props.mode === 'places' ? null : props.mode === 'map' ? (
             <>
               <button type="button" className="btn" onClick={() => setOpen(new Set(allManagers))}>
                 Expand all
@@ -963,7 +1005,9 @@ function CompanyPage(props: {
         </div>
       </header>
 
-      {props.mode === 'tree' ? (
+      {props.mode === 'places' ? (
+        props.places
+      ) : props.mode === 'tree' ? (
         props.tree
       ) : (
         <MapWithSide side={props.side}>

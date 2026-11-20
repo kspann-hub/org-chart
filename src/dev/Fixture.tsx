@@ -6,7 +6,7 @@
  * only change local state. Nothing here is imported by the app's own path.
  */
 import { useMemo, useState } from 'react'
-import type { Employee, Group, HistoryEntry, Position } from '../lib/types'
+import type { Employee, Group, HistoryEntry, MapHours, MapProject, Position } from '../lib/types'
 import { joinNodes } from '../lib/layout'
 import { Workspace, type WorkspaceActions } from '../components/Workspace'
 
@@ -17,6 +17,19 @@ const VERTICALS = [
 ]
 
 const VIEWER = 'viewer@example.com'
+
+const HOME_BASES = ['Sacramento, CA', 'Phoenix, AZ', 'Reno, NV', 'San Diego, CA', 'Portland, OR']
+
+/** Made-up projects, at places the real data uses, in every status the map sorts. */
+const PROJECT_SITES: Array<[string, string]> = [
+  ['Sparks, NV', 'Active'], ['Sparks, NV', 'Active'], ['Sparks, NV', 'Closed'],
+  ['San Diego, CA', 'Active'], ['San Diego, CA', 'Preliminary'], ['San Diego', 'Closed'],
+  ['Mesa, AZ', 'Active'], ['Mesa, AZ', 'Preliminary'], ['Phoenix, AZ', 'Active'],
+  ['The Dalles, OR', 'Active'], ['Prineville, OR', 'Closed'], ['Wilmer, TX', 'Closed'],
+  ['Lexington, KY', 'Active'], ['San Antonio, TX', 'Preliminary'], ['Goodyear, AZ', 'WorkHold'],
+  ['Atlanta, GA', 'Closed'], ['NM', 'Closed'], ['Multiple', 'Active'], ['Los Angeles', 'Closed'],
+  ['Sacramento, CA', 'Active'], ['Fort Lauderdale, FL', 'Closed'], ['West Memphis, AR', 'Closed'],
+]
 
 /** A stand-in firm: three verticals, a lead each, managers, and their teams. */
 function fixture() {
@@ -44,6 +57,8 @@ function fixture() {
       photo_path: null,
       // Every third seat has a profile, so the badge shows on some cards only.
       linkedin_url: n % 3 === 1 ? 'https://www.linkedin.com/in/example-profile' : null,
+      // A few typed-in home bases; everyone else falls back to timesheets.
+      home_base: n % 7 === 0 ? HOME_BASES[n % HOME_BASES.length] : null,
       source: extra.manual ? 'manual' : 'ajera',
       updated_at: '2026-08-01T00:00:00Z',
       updated_by: null,
@@ -100,6 +115,27 @@ function fixture() {
 const data = fixture()
 
 const now = Date.now()
+
+const MAP_PROJECTS: MapProject[] = PROJECT_SITES.map(([location, status], i) => ({
+  project_key: String(1000 + i),
+  name: `${24 + (i % 3)}-${String(10 + i * 3).padStart(3, '0')} ${location.split(',')[0]} Cx`,
+  status,
+  location,
+  client: ['Example Data Centers', 'Sample Health', 'Demo Logistics'][i % 3],
+  manager_key: `e${5 + (i % 6) * 6}`,
+  last_work_date: new Date(now - (status === 'Closed' ? 400 : 3) * 86_400_000).toISOString().slice(0, 10),
+}))
+
+/** Everyone charges time to one or two live projects, in a repeatable pattern. */
+const MAP_HOURS: MapHours[] = data.directory.flatMap((e, i) => {
+  const live = MAP_PROJECTS.filter((p) => p.status === 'Active' || p.status === 'WorkHold')
+  const a = live[i % live.length]
+  const b = live[(i * 5 + 3) % live.length]
+  const rows: MapHours[] = [{ employee_key: e.employee_key, project_key: a.project_key, hours_14d: 48 + (i % 5) * 4, hours_90d: 300 }]
+  if (i % 3 === 0 && b !== a)
+    rows.push({ employee_key: e.employee_key, project_key: b.project_key, hours_14d: 24, hours_90d: 120 })
+  return rows
+})
 const HISTORY: HistoryEntry[] = [
   {
     id: 'h1',
@@ -180,6 +216,7 @@ export function Fixture() {
     sync: async () => {},
     loadHistory: async () => {},
     undo: async () => {},
+    loadMap: async () => {},
     signOut: () => {},
     fail: (e) => console.error(e),
   }
@@ -202,6 +239,9 @@ export function Fixture() {
       undoing={null}
       syncing={false}
       lastSync={null}
+      map={{ projects: MAP_PROJECTS, hours: MAP_HOURS }}
+      mapLoading={false}
+      mapError={null}
       actions={actions}
     />
   )

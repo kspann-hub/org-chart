@@ -6,6 +6,7 @@ import {
   IconClock,
   IconDownload,
   IconOrgChart,
+  IconPin,
   IconOverview,
   IconSignOut,
   IconSync,
@@ -14,7 +15,7 @@ import {
 /** Which screen is open. Lives here because the sidebar is what changes it. */
 export type Page =
   | { kind: 'home' }
-  | { kind: 'all'; mode: 'map' | 'tree' }
+  | { kind: 'all'; mode: 'map' | 'tree' | 'places' }
   | { kind: 'group'; id: string; mode: 'map' | 'tree' }
   | { kind: 'changes' }
 
@@ -109,10 +110,16 @@ export function Sidebar(props: Props) {
           label="Overview"
         />
         <NavButton
-          on={page.kind === 'all'}
+          on={page.kind === 'all' && page.mode !== 'places'}
           onClick={() => props.onNavigate({ kind: 'all', mode: 'map' })}
           icon={<IconOrgChart />}
           label="Full org chart"
+        />
+        <NavButton
+          on={page.kind === 'all' && page.mode === 'places'}
+          onClick={() => props.onNavigate({ kind: 'all', mode: 'places' })}
+          icon={<IconPin />}
+          label="CriticalArc map"
         />
       </nav>
 

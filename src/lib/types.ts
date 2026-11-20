@@ -11,6 +11,8 @@ export type Position = {
   photo_path: string | null
   /** Full profile URL, e.g. https://www.linkedin.com/in/jane-doe. Null = no badge. */
   linkedin_url: string | null
+  /** "City, ST". Undefined until supabase/10_map.sql has been run. */
+  home_base?: string | null
   /** How the seat came to exist. Undefined until 06_manual_seats.sql is run. */
   source?: SeatSource
   updated_at: string
@@ -66,6 +68,25 @@ export type SyncResult = {
   parented: number
   departed: number
   total: number
+}
+
+/** One Ajera project, from public.org_map_projects (10_map.sql). */
+export type MapProject = {
+  project_key: string
+  name: string | null
+  status: string | null
+  location: string | null
+  client: string | null
+  manager_key: string | null
+  last_work_date: string | null
+}
+
+/** Hours one person charged to one project, from public.org_map_hours. */
+export type MapHours = {
+  employee_key: string
+  project_key: string
+  hours_14d: number | null
+  hours_90d: number
 }
 
 /** Which way the tree grows. See layoutChart() for why both exist. */
