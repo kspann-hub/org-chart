@@ -2120,6 +2120,46 @@ a.who-photo:hover .who-li {
   margin-left: auto;
 }
 
+/* Test mode on the map: select, drag, drop. */
+.test-tools {
+  align-items: center;
+}
+
+.test-input {
+  width: 200px;
+  min-height: 30px;
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
+.rmap-node.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rmap-node.is-moved {
+  border-style: dashed;
+  border-color: var(--test);
+}
+
+.rmap-node[draggable='true'],
+.chip[draggable='true'] {
+  cursor: grab;
+}
+
+.rmap-node.is-dragging,
+.chip.is-dragging {
+  opacity: 0.4;
+}
+
+.rmap-node.is-drop,
+.chip.is-drop,
+.rmap-team.is-drop {
+  border-color: var(--test);
+  background: var(--test-soft);
+  box-shadow: 0 0 0 2px var(--test);
+}
+
 .vrow {
   display: flex;
   flex-direction: column;

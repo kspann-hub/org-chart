@@ -652,35 +652,147 @@ function VerticalPage(props: {
 }) {
   const { group, members, lead } = props
 
-  // Test mode: a sandbox copy of this vertical's tree. Moves live in this
-  // component's state and nowhere else — nothing is written to the database.
+  // Test mode: a sandbox copy of this vertical's tree. Moves, added roles and
+  // removals live in this component's state and nowhere else — nothing is
+  // written to the database.
   const [testOn, setTestOn] = useState(false)
   const [testSel, setTestSel] = useState<string | null>(null)
+  /** Seat id -> the manager it now reports to in the copy. */
   const [moves, setMoves] = useState<Map<string, string>>(new Map())
+  /** Roles that exist only in the copy. Their parent_id is where they were added. */
+  const [added, setAdded] = useState<ChartNode[]>([])
+  /** Real seats taken out of the copy; their reports move up a level. */
+  const [removed, setRemoved] = useState<Set<string>>(new Set())
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overKey, setOverKey] = useState<string | null>(null)
+  const [newTitle, setNewTitle] = useState('')
 
-  const stats = useMemo(() => verticalStats(members), [members])
-  const byId = useMemo(() => new Map(members.map((m) => [m.id, m])), [members])
+  const byId = useMemo(
+    () => new Map([...members, ...added].map((m) => [m.id, m])),
+    [members, added],
+  )
 
-  const forest: Forest = useMemo(() => {
-    if (!testOn || moves.size === 0) return buildForest(members)
-    return buildForest(
-      members.map((m) => {
-        const to = moves.get(m.id)
-        return to ? { ...m, position: { ...m.position, parent_id: to } } : m
-      }),
-    )
-  }, [members, moves, testOn])
+  // The copy as a flat list: moves applied, removed seats gone, and anyone
+  // who reported to a removed seat reporting to that seat's manager instead.
+  const sandbox: ChartNode[] = useMemo(() => {
+    if (!testOn) return members
+    const all = [...members, ...added].map((m) => {
+      const to = moves.get(m.id)
+      return to ? { ...m, position: { ...m.position, parent_id: to } } : m
+    })
+    const raw = new Map(all.map((n) => [n.id, n.position.parent_id]))
+    const resolve = (p: string | null) => {
+      const seen = new Set<string>()
+      while (p && removed.has(p) && !seen.has(p)) {
+        seen.add(p)
+        p = raw.get(p) ?? null
+      }
+      return p
+    }
+    return all
+      .filter((n) => !removed.has(n.id))
+      .map((n) => {
+        const r = resolve(n.position.parent_id)
+        return r === n.position.parent_id ? n : { ...n, position: { ...n.position, parent_id: r } }
+      })
+  }, [members, added, moves, removed, testOn])
 
-  const nameOf = (id: string | null | undefined) => (id ? byId.get(id)?.name ?? 'someone' : 'the top')
+  const parentOf = useMemo(
+    () => new Map(sandbox.map((n) => [n.id, n.position.parent_id])),
+    [sandbox],
+  )
+  const stats = useMemo(() => verticalStats(sandbox), [sandbox])
+  const forest: Forest = useMemo(() => buildForest(sandbox), [sandbox])
 
-  function moveHere(managerId: string) {
-    if (!testSel) return
+  const labelOf = (id: string | null | undefined) => {
+    if (!id) return 'the top'
+    const n = byId.get(id)
+    if (!n) return 'someone'
+    return n.vacant ? (n.title ? `${n.title} (vacant)` : 'Vacant seat') : n.name
+  }
+
+  /** May `seat` report to `manager` without making a loop or changing nothing? */
+  function canMove(seat: string | null, manager: string) {
+    if (!seat || seat === manager || parentOf.get(seat) === manager) return false
+    const seen = new Set<string>()
+    for (let p: string | null | undefined = manager; p && !seen.has(p); p = parentOf.get(p)) {
+      if (p === seat) return false // can't report to someone below yourself
+      seen.add(p)
+    }
+    return true
+  }
+
+  function moveTo(seat: string, manager: string) {
+    if (!canMove(seat, manager)) return
     setMoves((prev) => {
       const next = new Map(prev)
-      if (byId.get(testSel)?.position.parent_id === managerId) next.delete(testSel)
-      else next.set(testSel, managerId)
+      if (byId.get(seat)?.position.parent_id === manager) next.delete(seat)
+      else next.set(seat, manager)
       return next
     })
+  }
+
+  function addRole() {
+    const title = newTitle.trim() || 'New role'
+    const parent = testSel ?? forest.roots[0]?.id ?? null
+    const id = `test-${crypto.randomUUID()}`
+    const node: ChartNode = {
+      id,
+      position: {
+        id,
+        parent_id: parent,
+        employee_key: null,
+        name_override: null,
+        title_override: title,
+        show_title: true,
+        sort_order: 9999,
+        photo_path: null,
+        linkedin_url: null,
+        home_base: null,
+        source: 'manual',
+        updated_at: new Date().toISOString(),
+        updated_by: null,
+      },
+      employee: null,
+      name: 'Vacant',
+      title,
+      stale: false,
+      vacant: true,
+      manual: true,
+      photoUrl: null,
+      linkedinUrl: null,
+    }
+    setAdded((prev) => [...prev, node])
+    setNewTitle('')
+  }
+
+  function removeSeat(id: string) {
+    if (added.some((a) => a.id === id)) {
+      // A role that only exists in the copy: hand its reports to its manager,
+      // then forget it entirely.
+      const up = parentOf.get(id) ?? null
+      setMoves((prev) => {
+        const next = new Map(prev)
+        next.delete(id)
+        for (const n of sandbox) {
+          if (n.position.parent_id !== id) continue
+          if (!up || byId.get(n.id)?.position.parent_id === up) next.delete(n.id)
+          else next.set(n.id, up)
+        }
+        return next
+      })
+      setAdded((prev) => prev.filter((a) => a.id !== id))
+    } else {
+      setRemoved((prev) => new Set(prev).add(id))
+    }
+    if (testSel === id) setTestSel(null)
+  }
+
+  function resetCopy() {
+    setMoves(new Map())
+    setAdded([])
+    setRemoved(new Set())
+    setTestSel(null)
   }
 
   // In the firm's own words where the circle has a name for the ring —
@@ -732,12 +844,43 @@ function VerticalPage(props: {
     )
   }
 
-  const changes = [...moves].map(([id, to]) => ({
-    id,
-    name: byId.get(id)?.vacant ? 'Vacant seat' : nameOf(id),
-    from: nameOf(byId.get(id)?.position.parent_id),
-    to: nameOf(to),
-  }))
+  const addedIds = new Set(added.map((a) => a.id))
+  const changes: { id: string; name: string; detail: string; undo: () => void }[] = [
+    ...added.map((a) => ({
+      id: a.id,
+      name: `${a.title ?? 'New role'} (new)`,
+      detail: `added under ${labelOf(parentOf.get(a.id))}`,
+      undo: () => removeSeat(a.id),
+    })),
+    ...[...removed].map((id) => ({
+      id,
+      name: labelOf(id),
+      detail: 'removed · their reports move up a level',
+      undo: () =>
+        setRemoved((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        }),
+    })),
+    ...[...moves]
+      .filter(([id]) => !addedIds.has(id) && !removed.has(id))
+      .map(([id]) => ({
+        id,
+        name: labelOf(id),
+        // Where they end up, which differs from the drop target if that seat
+        // was removed afterwards.
+        detail: `${labelOf(byId.get(id)?.position.parent_id)} → ${labelOf(parentOf.get(id))}`,
+        undo: () =>
+          setMoves((prev) => {
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          }),
+      })),
+  ]
+  const changed = new Set([...moves.keys(), ...addedIds])
+  const addUnder = testSel ?? forest.roots[0]?.id ?? null
 
   return (
     <div className="page">
@@ -780,12 +923,13 @@ function VerticalPage(props: {
             <div>
               <p className="strong">Test mode: you're working on a copy of this vertical</p>
               <p className="meta">
-                Nothing here changes Ajera or the live chart. Click a person, then “Move here” on
-                another manager's team.
+                Nothing here changes Ajera or the live chart. Drag anyone onto a person or a
+                team to change who they report to. Click someone to select them, then add a role
+                under them or remove them.
               </p>
             </div>
             <div className="row-wrap">
-              <button type="button" className="btn sm" onClick={() => setMoves(new Map())}>
+              <button type="button" className="btn sm" onClick={resetCopy}>
                 Reset copy
               </button>
               <button
@@ -809,20 +953,8 @@ function VerticalPage(props: {
             {changes.map((c) => (
               <div className="test-change" key={c.id}>
                 <span className="strong">{c.name}</span>
-                <span className="meta">
-                  {c.from} → {c.to}
-                </span>
-                <button
-                  type="button"
-                  className="btn sm"
-                  onClick={() =>
-                    setMoves((prev) => {
-                      const next = new Map(prev)
-                      next.delete(c.id)
-                      return next
-                    })
-                  }
-                >
+                <span className="meta">{c.detail}</span>
+                <button type="button" className="btn sm" onClick={c.undo}>
                   Undo
                 </button>
               </div>
@@ -856,7 +988,40 @@ function VerticalPage(props: {
           <h2 id="map-h" className="h-md">
             Reporting map
           </h2>
-          <p className="meta">Click anyone to see their card.</p>
+          {testOn ? (
+            <div className="row-wrap test-tools">
+              <input
+                className="test-input"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && addUnder) addRole()
+                }}
+                placeholder="New role title"
+                aria-label="New role title"
+              />
+              <button
+                type="button"
+                className="btn sm is-test"
+                onClick={addRole}
+                disabled={!addUnder}
+              >
+                Add role under {labelOf(addUnder)}
+              </button>
+              {testSel && (
+                <>
+                  <button type="button" className="btn sm" onClick={() => removeSeat(testSel)}>
+                    Remove {labelOf(testSel)}
+                  </button>
+                  <button type="button" className="btn sm" onClick={() => setTestSel(null)}>
+                    Deselect
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="meta">Click anyone to see their card.</p>
+          )}
         </div>
         <div className="hscroll">
           <ReportingMap
@@ -868,12 +1033,22 @@ function VerticalPage(props: {
               testOn
                 ? {
                     selectedId: testSel,
-                    selectedName: byId.get(testSel ?? '')?.vacant
-                      ? 'the vacant seat'
-                      : (byId.get(testSel ?? '')?.name ?? '').split(/\s+/)[0],
-                    moved: moves,
+                    dragId,
+                    overKey,
+                    changed,
                     onPick: (id) => setTestSel((cur) => (cur === id ? null : id)),
-                    onMoveHere: moveHere,
+                    onDragStart: (id) => setDragId(id),
+                    onDragEnd: () => {
+                      setDragId(null)
+                      setOverKey(null)
+                    },
+                    onOver: setOverKey,
+                    canDrop: (managerId) => canMove(dragId, managerId),
+                    onDrop: (managerId) => {
+                      if (dragId) moveTo(dragId, managerId)
+                      setDragId(null)
+                      setOverKey(null)
+                    },
                   }
                 : undefined
             }
