@@ -35,13 +35,26 @@ export function describeChange(
   entry: HistoryEntry,
   nameFor: (id: string | null) => string | null,
 ): string {
-  const who = entry.label ?? 'a seat'
+  return describeChangeParts(entry, nameFor)
+    .map((p) => (typeof p === 'string' ? p : p.name))
+    .join('')
+}
 
-  if (entry.action === 'insert') return `Added ${who}`
-  if (entry.action === 'delete') return `Deleted ${who}`
+/** A run of plain text, or a name the change log sets in bold. */
+export type ChangePart = string | { name: string }
+
+/** describeChange, with the names kept apart so they can be emphasised. */
+export function describeChangeParts(
+  entry: HistoryEntry,
+  nameFor: (id: string | null) => string | null,
+): ChangePart[] {
+  const who = { name: entry.label ?? 'a seat' }
+
+  if (entry.action === 'insert') return ['Added ', who]
+  if (entry.action === 'delete') return ['Deleted ', who]
 
   const fields = changedFields(entry)
-  if (fields.length === 0) return `Edited ${who}`
+  if (fields.length === 0) return ['Edited ', who]
 
   // A move is the change most likely to be a mistake — it's the one you can
   // cause by dragging — so it gets named explicitly rather than lumped in.
@@ -49,11 +62,48 @@ export function describeChange(
     const from = manager(entry.before_row?.parent_id, nameFor)
     const to = manager(entry.after_row?.parent_id, nameFor)
     const rest = fields.filter((f) => f !== 'parent_id')
-    const moved = `Moved ${who} from ${from} to ${to}`
-    return rest.length ? `${moved}, and changed ${list(rest)}` : moved
+    const moved: ChangePart[] = ['Moved ', who, ' from ', { name: from }, ' to ', { name: to }]
+    return rest.length ? [...moved, `, and changed ${list(rest)}`] : moved
   }
 
-  return `Changed ${list(fields)} on ${who}`
+  return [`Changed ${list(fields)} on `, who]
+}
+
+/** What the change log's filter chips sort entries into. */
+export type ChangeKind = 'move' | 'add' | 'edit' | 'delete'
+
+export function changeKind(entry: HistoryEntry): ChangeKind {
+  if (entry.action === 'insert') return 'add'
+  if (entry.action === 'delete') return 'delete'
+  return changedFields(entry).includes('parent_id') ? 'move' : 'edit'
+}
+
+/** Where an inserted seat came from, read off the logged row. */
+export function insertedSource(entry: HistoryEntry): SeatSource | null {
+  return entry.action === 'insert' ? seatSource(entry.after_row?.source) : null
+}
+
+/** The heading a change is filed under in the log. */
+export function dayBucket(iso: string, now: Date = new Date()): string {
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const t = new Date(iso).getTime()
+  if (t >= startOfToday) return 'Today'
+  if (t >= startOfToday - 86_400_000) return 'Yesterday'
+  if (t >= startOfToday - 6 * 86_400_000) return 'Earlier this week'
+  return 'Older'
+}
+
+/**
+ * "12 min ago" for today, "yesterday at 4:12 pm" for yesterday, a short date
+ * after that. Past a day, "3 days ago" makes people count backwards.
+ */
+export function when(iso: string, now: Date = new Date()): string {
+  const bucket = dayBucket(iso, now)
+  const d = new Date(iso)
+  if (bucket === 'Today') return relativeTime(iso, now.getTime())
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }).toLowerCase()
+  if (bucket === 'Yesterday') return `yesterday at ${time}`
+  return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 }
 
 /**

@@ -1,25 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
-import type {
-  Employee,
-  Group,
-  HistoryEntry,
-  Orientation,
-  Position,
-  SyncResult,
-} from './lib/types'
-import { descendantIds, joinNodes, layoutChart } from './lib/layout'
-import { layoutCircle } from './lib/circle'
-import { assignGroups, summariseGroups, ungroupedNodes } from './lib/groups'
+import type { Employee, Group, HistoryEntry, Position, SyncResult } from './lib/types'
+import { joinNodes } from './lib/layout'
 import { signPhotoPaths } from './lib/photos'
-import { downloadBlob, exportChartPng } from './lib/exportPng'
 import { Login, WrongAccount } from './components/Login'
 import { isCompanyEmail } from './lib/config'
-import { Chart } from './components/Chart'
-import { Home } from './components/Home'
-import { EditPanel } from './components/EditPanel'
-import { HistoryPanel } from './components/HistoryPanel'
+import { Workspace, type WorkspaceActions } from './components/Workspace'
 
 /**
  * How long to wait for realtime events to stop arriving before reloading.
@@ -51,33 +38,14 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  /** null = the landing page; a group id = that vertical; 'all' = everyone. */
-  const [view, setViewMode] = useState<string | null>(null)
-
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [focusId, setFocusId] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-
   // Sync + history are admin tools, kept out of the main data load so a
   // viewer's page never asks for them at all.
   const [syncing, setSyncing] = useState(false)
+  const [lastSync, setLastSync] = useState<{ result: SyncResult; at: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [undoing, setUndoing] = useState<string | null>(null)
-
-  // Horizontal by default: a 76-person top-down tree is ~18,000px wide and
-  // unreadable without zooming out past the point of legibility. Remembered
-  // per browser so nobody has to re-pick it every visit.
-  const [orientation, setOrientation] = useState<Orientation>(
-    () => (localStorage.getItem('orgchart.orientation') as Orientation) ?? 'horizontal',
-  )
-
-  useEffect(() => {
-    localStorage.setItem('orgchart.orientation', orientation)
-  }, [orientation])
 
   // ------------------------------------------------------------------ auth
 
@@ -163,76 +131,6 @@ export default function App() {
     [positions, directory, photoUrls],
   )
 
-  const summaries = useMemo(() => summariseGroups(nodes, groups), [nodes, groups])
-  const ungrouped = useMemo(() => ungroupedNodes(nodes, groups), [nodes, groups])
-  const membership = useMemo(() => assignGroups(nodes, groups), [nodes, groups])
-
-  const activeGroup = view && view !== 'all' ? groups.find((g) => g.id === view) ?? null : null
-
-  // Opening a vertical charts only its members. The group's root loses its
-  // parent from the visible set and becomes the top of the chart, which is
-  // exactly what you want when you drill into a branch.
-  const visibleNodes = useMemo(
-    () => (activeGroup ? nodes.filter((n) => membership.get(n.id) === activeGroup.id) : nodes),
-    [nodes, membership, activeGroup],
-  )
-
-  const layout = useMemo(
-    () => layoutChart(visibleNodes, collapsed, orientation),
-    [visibleNodes, collapsed, orientation],
-  )
-
-  // The landing page. Laid out from every seat regardless of which vertical is
-  // open, because it is the one view that always shows the whole firm.
-  const circle = useMemo(() => layoutCircle(nodes, groups), [nodes, groups])
-
-  const accentById = useMemo(() => {
-    const byGroup = new Map(groups.map((g) => [g.id, g.accent]))
-    return (id: string) => byGroup.get(membership.get(id) ?? '') ?? null
-  }, [groups, membership])
-
-  const matchedIds = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return new Set<string>()
-    return new Set(
-      visibleNodes
-        .filter(
-          (n) =>
-            n.name.toLowerCase().includes(q) ||
-            (n.title ?? '').toLowerCase().includes(q) ||
-            // Search the Ajera legal name too, so looking up "Samuel" still
-            // finds the box that displays "Sam".
-            (n.employee?.full_name ?? '').toLowerCase().includes(q) ||
-            (n.employee?.employee_email ?? '').toLowerCase().includes(q),
-        )
-        .map((n) => n.id),
-    )
-  }, [visibleNodes, query])
-
-  const forbiddenIds = useMemo(
-    () => (draggingId ? descendantIds(draggingId, nodes) : new Set<string>()),
-    [draggingId, nodes],
-  )
-
-  // Every seat on the chart, not just the ones currently visible — the change
-  // log names managers that may sit outside the group being viewed.
-  const nameById = useMemo(() => new Map(nodes.map((n) => [n.id, n.name])), [nodes])
-
-  // Which boxes are the signed-in user's own. Matched on Ajera's
-  // employee_email, so it only works for people whose login address matches
-  // what Ajera has — and one person can legitimately hold several seats.
-  const viewerIds = useMemo(() => {
-    const email = session?.user.email?.toLowerCase()
-    if (!email) return new Set<string>()
-    return new Set(
-      nodes
-        .filter((n) => n.employee?.employee_email?.toLowerCase() === email)
-        .map((n) => n.id),
-    )
-  }, [nodes, session])
-
-  const selected = selectedId ? layout.byId.get(selectedId) ?? null : null
-
   // --------------------------------------------------------------- mutations
   // Every one of these can be refused by the database if the caller isn't an
   // admin. That's the real guard; the UI just doesn't offer them.
@@ -293,13 +191,8 @@ export default function App() {
     await load()
   }
 
-  async function addChild(parentId: string | null) {
-    // A seat with no parent is a new root. Inside a group view the group's
-    // members are the only visible nodes, so a new root lands outside the
-    // filter and the click looks like it did nothing. Falling back to the
-    // group's own root keeps the new seat where the admin is looking.
-    const effectiveParent = parentId ?? activeGroup?.root_position_id ?? null
-
+  /** Resolves to the new seat's id. Workspace picks the parent. */
+  async function addSeat(effectiveParent: string | null): Promise<string | null> {
     const siblings = positions.filter((p) => p.parent_id === effectiveParent)
     const seat = {
       parent_id: effectiveParent,
@@ -324,39 +217,48 @@ export default function App() {
         .single())
     }
 
-    if (error) return fail(error)
+    if (error) {
+      fail(error)
+      return null
+    }
     await load()
-    setSelectedId(data.id)
-    setFocusId(data.id)
+    return data.id as string
   }
 
-  async function deleteSeat(id: string) {
-    const node = layout.byId.get(id)
-    if (!node) return
+  async function deleteSeat(id: string): Promise<boolean> {
+    const node = nodes.find((n) => n.id === id)
+    if (!node) return false
+    const childCount = positions.filter((p) => p.parent_id === id).length
 
     const message =
-      node.childCount > 0
-        ? `Delete ${node.name}?\n\nTheir ${node.childCount} direct report(s) will move up to report to ${
+      childCount > 0
+        ? `Delete ${node.name}?\n\nTheir ${childCount} direct report(s) will move up to report to ${
             node.position.parent_id ? 'their manager' : 'the top of the chart'
           }.`
         : `Delete ${node.name}?`
-    if (!window.confirm(message)) return
+    if (!window.confirm(message)) return false
 
     // Promote the children first. The foreign key is ON DELETE RESTRICT, so
     // skipping this step makes the delete fail rather than quietly taking a
     // whole branch with it.
-    if (node.childCount > 0) {
+    if (childCount > 0) {
       const { error } = await supabase
         .from('org_positions')
         .update({ parent_id: node.position.parent_id })
         .eq('parent_id', id)
-      if (error) return fail(error)
+      if (error) {
+        fail(error)
+        return false
+      }
     }
 
     const { error } = await supabase.from('org_positions').delete().eq('id', id)
-    if (error) return fail(error)
-    setSelectedId(null)
+    if (error) {
+      fail(error)
+      return false
+    }
     await load()
+    return true
   }
 
   // ------------------------------------------------------- sync + history
@@ -370,11 +272,13 @@ export default function App() {
       : null
 
   const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
     const { data, error } = await supabase
       .from('org_position_history')
       .select('*')
       .order('changed_at', { ascending: false })
       .limit(100)
+    setHistoryLoading(false)
 
     if (error) return fail(missingScript(error) ?? error)
     setHistory((data ?? []) as HistoryEntry[])
@@ -401,6 +305,7 @@ export default function App() {
     if (error) return fail(missingScript(error) ?? error)
 
     const r = data as SyncResult
+    setLastSync({ result: r, at: new Date().toISOString() })
     const parts = [
       r.added === 0
         ? 'No new people to add'
@@ -413,7 +318,9 @@ export default function App() {
 
     setNotice(`${parts.join(' · ')}. ${r.total} seats total.`)
     await load()
-    if (showHistory) await loadHistory()
+    // Cheap, admin-only, and it is what makes the Recent changes page show
+    // the sync's additions without a manual refresh.
+    await loadHistory()
   }
 
   async function undoChange(entry: HistoryEntry) {
@@ -427,45 +334,6 @@ export default function App() {
     await loadHistory()
   }
 
-  function toggleCollapse(id: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function jumpToFirstMatch() {
-    const first = layout.nodes.find((n) => matchedIds.has(n.id))
-    if (first) {
-      setSelectedId(first.id)
-      setFocusId(first.id)
-    }
-  }
-
-  const clearFocus = useCallback(() => setFocusId(null), [])
-
-  const [exporting, setExporting] = useState(false)
-
-  async function exportPng() {
-    setExporting(true)
-    try {
-      const label = activeGroup?.name ?? 'Everyone'
-      const blob = await exportChartPng(layout, {
-        title: `CriticalArc — ${label}`,
-        subtitle: `${layout.nodes.length} of ${nodes.length} people · ${new Date().toLocaleDateString()}`,
-        accentOf: accentById,
-      })
-      const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      downloadBlob(blob, `org-chart-${slug}.png`)
-    } catch (e) {
-      fail(e)
-    } finally {
-      setExporting(false)
-    }
-  }
-
   // ------------------------------------------------------------------ render
 
   if (!authReady) return <div className="boot">Loading…</div>
@@ -477,239 +345,43 @@ export default function App() {
     return <WrongAccount email={session.user.email ?? 'an unknown address'} />
   }
 
-  const onHome = view === null
+  const actions: WorkspaceActions = {
+    reparent,
+    savePatch,
+    saveGroup,
+    addSeat,
+    deleteSeat,
+    sync: syncAjera,
+    loadHistory,
+    undo: undoChange,
+    signOut: () => void supabase.auth.signOut(),
+    fail,
+  }
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <h1 className="brand">
-          <span className="brand-mark">CriticalArc</span>
-          {activeGroup ? (
-            <>
-              <span className="brand-dot" style={{ background: activeGroup.accent }} />
-              <span>{activeGroup.name}</span>
-            </>
-          ) : (
-            <span>{onHome ? 'Organization Chart' : 'Everyone'}</span>
-          )}
-        </h1>
-
-        {!onHome && (
-          <div className="search">
-            <input
-              value={query}
-              placeholder="Search anyone…"
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && jumpToFirstMatch()}
-            />
-            {query && <span className="search-count">{matchedIds.size}</span>}
-          </div>
-        )}
-
-        {!onHome && (
-          <button
-            className="btn-quiet"
-            title={
-              orientation === 'horizontal'
-                ? 'Switch to a classic top-down chart'
-                : 'Switch to left-to-right, which fits far better at this headcount'
-            }
-            onClick={() =>
-              setOrientation((o) => (o === 'horizontal' ? 'vertical' : 'horizontal'))
-            }
-          >
-            {orientation === 'horizontal' ? 'Top-down' : 'Left-to-right'}
-          </button>
-        )}
-
-        {!onHome && viewerIds.size > 0 && (
-          <button
-            className="btn-quiet"
-            onClick={() => {
-              const [first] = viewerIds
-              setSelectedId(first)
-              setFocusId(first)
-            }}
-          >
-            Find me
-          </button>
-        )}
-
-        <div className="spacer" />
-
-        <span className="count-readout">
-          {onHome
-            ? `${nodes.length} people`
-            : `${layout.nodes.length} in this view · ${nodes.length} total`}
-        </span>
-
-        {isAdmin && (
-          <>
-            <span className="badge">Admin</span>
-
-            {/* Sync and history sit outside the !onHome guard on purpose —
-                both are useful from the landing page, and the request was
-                for the sync to be reachable from every screen. */}
-            <button
-              className="btn-quiet"
-              onClick={() => void syncAjera()}
-              disabled={syncing}
-              title="Add anyone new from Ajera. Never deletes, never writes back to Ajera."
-            >
-              {syncing ? 'Syncing…' : '⟳ Sync with Ajera'}
-            </button>
-
-            <button
-              className="btn-quiet"
-              onClick={() => {
-                const next = !showHistory
-                setShowHistory(next)
-                if (next) void loadHistory()
-              }}
-              title="See recent edits and undo one"
-            >
-              Recent changes
-            </button>
-
-            {!onHome && (
-              <button
-                className="btn-quiet"
-                onClick={() => void addChild(selectedId)}
-                title={
-                  selectedId
-                    ? 'Add a seat reporting to the selected box'
-                    : 'Add a seat, then pick who fills it'
-                }
-              >
-                {selectedId ? 'Add a report' : 'Add a person'}
-              </button>
-            )}
-          </>
-        )}
-
-        {!onHome && (
-          <button
-            className="btn-quiet"
-            onClick={() => {
-              setViewMode(null)
-              setSelectedId(null)
-              setQuery('')
-            }}
-          >
-            ← All groups
-          </button>
-        )}
-
-        {!onHome && (
-          <button
-            className="btn-quiet"
-            onClick={() => void exportPng()}
-            disabled={exporting}
-            title="Download this chart as an image"
-          >
-            {exporting ? 'Rendering…' : '↓ PNG'}
-          </button>
-        )}
-        <button className="btn-quiet" onClick={() => void supabase.auth.signOut()}>
-          Sign out
-        </button>
-      </header>
-
-      {error && (
-        <div className="banner">
-          {error}
-          <button className="btn-quiet" onClick={() => setError(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {notice && (
-        <div className="banner is-notice">
-          {notice}
-          <button className="btn-quiet" onClick={() => setNotice(null)}>
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <div className="body">
-        {loading ? (
-          <div className="boot">Loading the chart…</div>
-        ) : nodes.length === 0 ? (
-          <div className="boot">
-            No seats yet. Run <code>supabase/02_seed_positions.sql</code> to create one per active
-            employee.
-          </div>
-        ) : onHome ? (
-          <Home
-            circle={circle}
-            summaries={summaries}
-            ungrouped={ungrouped}
-            totalSeats={nodes.length}
-            viewerIds={viewerIds}
-            onOpenGroup={(id) => setViewMode(id)}
-            onOpenAll={() => setViewMode('all')}
-          />
-        ) : (
-          <Chart
-            layout={layout}
-            isAdmin={isAdmin}
-            selectedId={selectedId}
-            matchedIds={matchedIds}
-            searching={query.trim().length > 0}
-            collapsed={collapsed}
-            forbiddenIds={forbiddenIds}
-            viewerIds={viewerIds}
-            orientation={orientation}
-            accentOf={accentById}
-            onSelect={setSelectedId}
-            onToggleCollapse={toggleCollapse}
-            onReparent={(child, parent) => void reparent(child, parent)}
-            onDragStateChange={setDraggingId}
-            focusId={focusId}
-            onFocusHandled={clearFocus}
-          />
-        )}
-
-        {isAdmin && !onHome && selected && (
-          <EditPanel
-            node={selected}
-            directory={directory}
-            allNodes={nodes}
-            forbiddenIds={descendantIds(selected.id, nodes)}
-            childCount={selected.childCount}
-            group={groups.find((g) => g.root_position_id === selected.id) ?? null}
-            onSave={(patch) => savePatch(selected.id, patch)}
-            onSaveGroup={(next) => saveGroup(selected.id, next)}
-            onAddChild={() => void addChild(selected.id)}
-            onDelete={() => void deleteSeat(selected.id)}
-            onClose={() => setSelectedId(null)}
-          />
-        )}
-
-        {isAdmin && showHistory && (
-          <HistoryPanel
-            entries={history}
-            nameFor={(id) => (id ? layout.byId.get(id)?.name ?? nameById.get(id) ?? null : null)}
-            undoing={undoing}
-            onUndo={(entry) => void undoChange(entry)}
-            onRefresh={() => void loadHistory()}
-            onClose={() => setShowHistory(false)}
-          />
-        )}
-      </div>
-
-      <footer className="statusbar">
-        <span>{session.user.email}</span>
-        <span>
-          {isAdmin
-            ? onHome
-              ? 'Open a group to edit it.'
-              : 'Click a box to edit. Drag one onto another to change who it reports to.'
-            : 'View only'}
-        </span>
-      </footer>
-    </div>
+    <Workspace
+      nodes={nodes}
+      directory={directory}
+      groups={groups}
+      isAdmin={isAdmin}
+      email={session.user.email ?? null}
+      loading={loading}
+      empty={
+        <>
+          No seats yet. Run <code>supabase/02_seed_positions.sql</code> to create one per active
+          employee.
+        </>
+      }
+      error={error}
+      notice={notice}
+      onDismissError={() => setError(null)}
+      onDismissNotice={() => setNotice(null)}
+      history={history}
+      historyLoading={historyLoading}
+      undoing={undoing}
+      syncing={syncing}
+      lastSync={lastSync}
+      actions={actions}
+    />
   )
 }
