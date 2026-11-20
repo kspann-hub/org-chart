@@ -370,6 +370,35 @@ export function Workspace(props: Props) {
         viewerIds={viewerIds}
         onOpenGroup={(id, mode, focus) => navigate({ kind: 'group', id, mode }, focus)}
         onOpenAll={(mode, focus) => navigate({ kind: 'all', mode }, focus)}
+        // Admins only. The same panel the tree opens, so a seat edits the same
+        // way from either place; the database refuses anyone else regardless.
+        renderEditor={
+          isAdmin
+            ? ({ id, onClose, onSelect }) => {
+                const node = nodes.find((n) => n.id === id)
+                if (!node) return null
+                return (
+                  <EditPanel
+                    node={node}
+                    directory={props.directory}
+                    allNodes={nodes}
+                    forbiddenIds={descendantIds(id, nodes)}
+                    childCount={nodes.filter((n) => n.position.parent_id === id).length}
+                    group={groups.find((g) => g.root_position_id === id) ?? null}
+                    onSave={(patch) => actions.savePatch(id, patch)}
+                    onSaveGroup={(next) => actions.saveGroup(id, next)}
+                    onAddChild={() =>
+                      void actions.addSeat(id).then((newId) => newId && onSelect(newId))
+                    }
+                    onDelete={() =>
+                      void actions.deleteSeat(id).then((gone) => gone && onSelect(null))
+                    }
+                    onClose={onClose}
+                  />
+                )
+              }
+            : undefined
+        }
       />
     )
   } else if (page.kind === 'changes') {
