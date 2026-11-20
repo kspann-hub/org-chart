@@ -2354,6 +2354,231 @@ a.who-photo:hover .who-li {
   border-top: 1px solid var(--line);
 }
 
+/* ------------------------------------------------------------ CriticalArc map */
+/* Pin colours from the design: people blue, active teal, potential orange
+   (hatched), past grey. */
+
+:root {
+  --pin-people: #4f8cf7;
+  --pin-active: #2dd4bf;
+  --pin-potential: #fb923c;
+  --pin-past: #9aa1ac;
+}
+
+.camap-card {
+  position: relative;
+  overflow: hidden;
+  height: clamp(480px, calc(100vh - 220px), 900px);
+  background: var(--bg);
+}
+
+.camap-vp {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.camap-vp.is-panning {
+  cursor: grabbing;
+}
+
+.camap-vp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.camap-svg {
+  display: block;
+}
+
+.camap-state {
+  fill: #23262b;
+}
+
+.camap-border {
+  fill: none;
+  stroke: #3a3e45;
+  stroke-width: 0.8;
+}
+
+.camap-coast {
+  fill: none;
+  stroke: #4a4f57;
+  stroke-width: 1.2;
+}
+
+.camap-link {
+  stroke: var(--pin-active);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+/* A pin is drawn with its tip on the spot, so it's lifted by its height. */
+.pin {
+  position: absolute;
+  width: 22px;
+  height: 30px;
+  margin: -30px 0 0 -11px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  transition: opacity 0.12s;
+}
+
+.pin svg {
+  display: block;
+}
+
+.pin-body {
+  stroke: #161719;
+  stroke-width: 1.5;
+}
+
+.pin-dot {
+  fill: #161719;
+}
+
+.pin.is-people .pin-body { fill: var(--pin-people); }
+.pin.is-active .pin-body { fill: var(--pin-active); }
+.pin.is-past .pin-body { fill: var(--pin-past); }
+.pin.is-potential .pin-body { fill: url(#camap-hatch); stroke: var(--pin-potential); }
+
+.pin.is-dim {
+  opacity: 0.3;
+}
+
+.pin.is-lit {
+  z-index: 2;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.55));
+}
+
+.pin:hover {
+  z-index: 3;
+}
+
+.pin:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The count, in the pin's head. */
+.pin-n {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #eceef1;
+  color: #161719;
+  font: 700 10px/16px 'Roboto Mono', ui-monospace, monospace;
+  text-align: center;
+}
+
+.camap-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: calc(100% - 300px);
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.legend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.legend-btn:hover {
+  background: var(--line);
+}
+
+.legend-btn[aria-pressed='false'] {
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.legend-btn[aria-pressed='false'] .sw-pin {
+  opacity: 0.35;
+}
+
+.camap-zoom {
+  right: 16px;
+  bottom: 16px;
+}
+
+/* A small swatch in a pin's colour, for legends and list rows. */
+.sw-pin {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin-people);
+}
+
+.sw-pin.lg {
+  width: 28px;
+  height: 28px;
+  margin: 6px;
+}
+
+.is-active > .sw-pin,
+.sw-pin.is-active { background: var(--pin-active); }
+.is-past > .sw-pin,
+.sw-pin.is-past { background: var(--pin-past); }
+.is-potential > .sw-pin,
+.sw-pin.is-potential {
+  background: repeating-linear-gradient(45deg, var(--pin-potential) 0 2px, #5a2a0b 2px 4px);
+}
+
+.prow-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: none;
+  font-size: 12px;
+}
+
+.tag.is-travel {
+  margin-left: 6px;
+  border-color: var(--pin-potential);
+  color: var(--pin-potential);
+}
+
+@media (max-width: 900px) {
+  .camap-card {
+    height: 70vh;
+  }
+
+  .camap-legend {
+    max-width: calc(100% - 32px);
+    bottom: 64px;
+  }
+}
+
 /* ------------------------------------------------------------- narrow */
 
 @media (max-width: 900px) {

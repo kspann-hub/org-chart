@@ -31,6 +31,7 @@ export function EditPanel(props: Props) {
   const [showTitle, setShowTitle] = useState(true)
   const [employeeKey, setEmployeeKey] = useState('')
   const [linkedin, setLinkedin] = useState('')
+  const [homeBase, setHomeBase] = useState('')
   const [parentId, setParentId] = useState('')
   const [isGroup, setIsGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -48,6 +49,7 @@ export function EditPanel(props: Props) {
     setShowTitle(node.position.show_title)
     setEmployeeKey(node.position.employee_key ?? '')
     setLinkedin(node.position.linkedin_url ?? '')
+    setHomeBase(node.position.home_base ?? '')
     setParentId(node.position.parent_id ?? '')
     setIsGroup(Boolean(props.group))
     setGroupName(props.group?.name ?? '')
@@ -56,6 +58,7 @@ export function EditPanel(props: Props) {
   }, [node.id, node.position, props.group])
 
   const person = node.employee
+  const hasHomeBase = 'home_base' in node.position
 
   async function save() {
     setSaving(true)
@@ -75,6 +78,9 @@ export function EditPanel(props: Props) {
         employee_key: employeeKey || null,
         parent_id: parentId || null,
         linkedin_url: linkedinUrl,
+        // Only once 10_map.sql has added the column; naming a column the
+        // table doesn't have makes the database refuse the whole save.
+        ...(hasHomeBase ? { home_base: homeBase.trim() || null } : {}),
       })
       setLinkedin(linkedinUrl ?? '')
       await props.onSaveGroup(
@@ -231,6 +237,21 @@ export function EditPanel(props: Props) {
           in a new tab. Leave it blank for no badge.
         </small>
       </label>
+
+      {hasHomeBase && (
+        <label>
+          <span>Home base</span>
+          <input
+            value={homeBase}
+            placeholder="Sacramento, CA"
+            onChange={(e) => setHomeBase(e.target.value)}
+          />
+          <small>
+            Where they're based, as City, ST. It places them on the CriticalArc map;
+            left blank, the map uses the project they've charged the most time to.
+          </small>
+        </label>
+      )}
 
       <label>
         <span>Reports to</span>

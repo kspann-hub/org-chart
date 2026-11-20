@@ -29,6 +29,8 @@ type Props = {
    * regardless.
    */
   renderEditor?: PersonEditor
+  /** Extra rows for the screen hosting the card, under the four facts. */
+  extra?: (shownId: string) => React.ReactNode
 }
 
 export type PersonEditor = (args: {
@@ -131,6 +133,8 @@ export function PersonCard(props: Props) {
           manager={shown.position.parent_id ? ctx.byId.get(shown.position.parent_id) ?? null : null}
           onPickManager={(id) => props.onSelect(id)}
         />
+
+        {props.extra?.(shown.id)}
 
         {isLead && (
           <div className="plist">

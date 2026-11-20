@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
-import type { Employee, Group, HistoryEntry, Position, SyncResult } from './lib/types'
+import type {
+  Employee,
+  Group,
+  HistoryEntry,
+  MapHours,
+  MapProject,
+  Position,
+  SyncResult,
+} from './lib/types'
 import { joinNodes } from './lib/layout'
 import { signPhotoPaths } from './lib/photos'
 import { Login, WrongAccount } from './components/Login'
@@ -46,6 +54,12 @@ export default function App() {
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [undoing, setUndoing] = useState<string | null>(null)
+
+  // The CriticalArc map's data: fetched the first time its tab is opened,
+  // never on the main load — most visits never look at it.
+  const [mapData, setMapData] = useState<{ projects: MapProject[]; hours: MapHours[] } | null>(null)
+  const [mapLoading, setMapLoading] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
 
   // ------------------------------------------------------------------ auth
 
@@ -271,6 +285,34 @@ export default function App() {
       ? 'Run supabase/04_sync_and_history.sql in the SQL Editor first — this feature needs it.'
       : null
 
+  const loadMap = useCallback(async () => {
+    setMapLoading(true)
+    const [projects, hours] = await Promise.all([
+      supabase.from('org_map_projects').select('*').range(0, 9999),
+      supabase.from('org_map_hours').select('*').range(0, 49999),
+    ])
+    setMapLoading(false)
+
+    const failure = projects.error ?? hours.error
+    if (failure) {
+      // The views come from 10_map.sql. Missing ones get a message that says
+      // which file to run, not PostgREST's wording.
+      const missing =
+        failure.code === 'PGRST205' || failure.code === '42P01' || /org_map_/.test(failure.message)
+      setMapError(
+        missing
+          ? 'Run supabase/10_map.sql in the Supabase SQL Editor to switch the map on.'
+          : failure.message,
+      )
+      return
+    }
+    setMapError(null)
+    setMapData({
+      projects: (projects.data ?? []) as MapProject[],
+      hours: (hours.data ?? []) as MapHours[],
+    })
+  }, [])
+
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true)
     const { data, error } = await supabase
@@ -354,6 +396,7 @@ export default function App() {
     sync: syncAjera,
     loadHistory,
     undo: undoChange,
+    loadMap,
     signOut: () => void supabase.auth.signOut(),
     fail,
   }
@@ -381,6 +424,9 @@ export default function App() {
       undoing={undoing}
       syncing={syncing}
       lastSync={lastSync}
+      map={mapData}
+      mapLoading={mapLoading}
+      mapError={mapError}
       actions={actions}
     />
   )
