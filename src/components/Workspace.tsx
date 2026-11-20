@@ -18,6 +18,7 @@ import { ReportingMap } from './ReportingMap'
 import { ChangesPage } from './ChangesPage'
 import { Chart } from './Chart'
 import { EditPanel } from './EditPanel'
+import { PersonCard, type PersonContext, type PersonEditor } from './PersonCard'
 import { IconBack, IconFlask } from './Icons'
 
 /** Everything that touches the database. App supplies the real ones. */
@@ -268,26 +269,98 @@ export function Workspace(props: Props) {
 
   // ------------------------------------------------------------------ parts
 
+  // Everything the shared employee card needs about the chart around a person.
+  const personCtx: PersonContext = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const kids = new Map<string, ChartNode[]>()
+    for (const n of nodes) {
+      const p = n.position.parent_id
+      if (!p || !byId.has(p)) continue
+      const bucket = kids.get(p)
+      if (bucket) bucket.push(n)
+      else kids.set(p, [n])
+    }
+    for (const list of kids.values()) {
+      list.sort(
+        (a, b) => a.position.sort_order - b.position.sort_order || a.name.localeCompare(b.name),
+      )
+    }
+    const groupById = new Map(groups.map((g) => [g.id, g]))
+    return {
+      byId,
+      kids,
+      accentOf: accentById,
+      verticalOf: (id) => {
+        const g = groupById.get(membership.get(id) ?? '')
+        return g ? { id: g.id, name: g.name, accent: g.accent } : null
+      },
+      viewerIds,
+    }
+  }, [nodes, groups, membership, accentById, viewerIds])
+
+  // Admins only. The same edit panel wherever the card was opened; the
+  // database refuses anyone else's writes regardless.
+  const renderEditor: PersonEditor | undefined = isAdmin
+    ? ({ id, onClose, onSelect }) => {
+        const node = personCtx.byId.get(id)
+        if (!node) return null
+        return (
+          <EditPanel
+            node={node}
+            directory={props.directory}
+            allNodes={nodes}
+            forbiddenIds={descendantIds(id, nodes)}
+            childCount={personCtx.kids.get(id)?.length ?? 0}
+            group={groups.find((g) => g.root_position_id === id) ?? null}
+            onSave={(patch) => actions.savePatch(id, patch)}
+            onSaveGroup={(next) => actions.saveGroup(id, next)}
+            // A new seat opens straight into its own editor: it is called
+            // "New seat" and has nobody in it, so editing is the next step.
+            onAddChild={() =>
+              void actions.addSeat(id).then((newId) => newId && onSelect(newId, true))
+            }
+            onDelete={() => void actions.deleteSeat(id).then((gone) => gone && onSelect(null))}
+            onClose={onClose}
+          />
+        )
+      }
+    : undefined
+
+  /** The one employee card, as every screen shows it. */
+  const personCard = (
+    id: string,
+    onSelect: (id: string | null) => void,
+    opts: { inTree?: boolean } = {},
+  ) => (
+    <PersonCard
+      id={id}
+      ctx={personCtx}
+      onSelect={onSelect}
+      onShowInTree={opts.inTree ? undefined : openInTree}
+      onShowMap={(g) => navigate({ kind: 'group', id: g, mode: 'map' })}
+      renderEditor={renderEditor}
+    />
+  )
+
+  /** Select a seat in the tree; one outside this tree opens its own. */
+  const selectInTree = (id: string | null) => {
+    if (!id) return setSelectedId(null)
+    if (layout.byId.has(id)) {
+      setSelectedId(id)
+      setFocusId(id)
+    } else openInTree(id)
+  }
+
+  // Beside a map, the card of whoever was clicked on it.
+  const mapSide =
+    selectedId && personCtx.byId.has(selectedId) ? personCard(selectedId, setSelectedId) : null
+
   const tree = (
     <TreeSection
       admin={isAdmin}
       panel={
-        isAdmin && selected ? (
-          <EditPanel
-            node={selected}
-            directory={props.directory}
-            allNodes={nodes}
-            forbiddenIds={descendantIds(selected.id, nodes)}
-            childCount={selected.childCount}
-            group={groups.find((g) => g.root_position_id === selected.id) ?? null}
-            onSave={(patch) => actions.savePatch(selected.id, patch)}
-            onSaveGroup={(next) => actions.saveGroup(selected.id, next)}
-            onAddChild={() => void addSeat()}
-            onDelete={() =>
-              void actions.deleteSeat(selected.id).then((gone) => gone && setSelectedId(null))
-            }
-            onClose={() => setSelectedId(null)}
-          />
+        selected ? (
+          <aside className="side-panel">{personCard(selected.id, selectInTree, { inTree: true })}</aside>
         ) : null
       }
     >
@@ -368,37 +441,9 @@ export function Workspace(props: Props) {
         circle={circle}
         verticalCount={groups.length}
         viewerIds={viewerIds}
-        onOpenGroup={(id, mode, focus) => navigate({ kind: 'group', id, mode }, focus)}
-        onOpenAll={(mode, focus) => navigate({ kind: 'all', mode }, focus)}
-        // Admins only. The same panel the tree opens, so a seat edits the same
-        // way from either place; the database refuses anyone else regardless.
-        renderEditor={
-          isAdmin
-            ? ({ id, onClose, onSelect }) => {
-                const node = nodes.find((n) => n.id === id)
-                if (!node) return null
-                return (
-                  <EditPanel
-                    node={node}
-                    directory={props.directory}
-                    allNodes={nodes}
-                    forbiddenIds={descendantIds(id, nodes)}
-                    childCount={nodes.filter((n) => n.position.parent_id === id).length}
-                    group={groups.find((g) => g.root_position_id === id) ?? null}
-                    onSave={(patch) => actions.savePatch(id, patch)}
-                    onSaveGroup={(next) => actions.saveGroup(id, next)}
-                    onAddChild={() =>
-                      void actions.addSeat(id).then((newId) => newId && onSelect(newId))
-                    }
-                    onDelete={() =>
-                      void actions.deleteSeat(id).then((gone) => gone && onSelect(null))
-                    }
-                    onClose={onClose}
-                  />
-                )
-              }
-            : undefined
-        }
+        onOpenGroup={(id) => navigate({ kind: 'group', id, mode: 'map' })}
+        onOpenAll={(mode) => navigate({ kind: 'all', mode })}
+        renderPerson={(id, onSelect) => personCard(id, onSelect)}
       />
     )
   } else if (page.kind === 'changes') {
@@ -424,7 +469,8 @@ export function Workspace(props: Props) {
         lead={nodes.find((n) => n.id === activeGroup.root_position_id) ?? null}
         mode={page.mode}
         onMode={(mode) => navigate({ kind: 'group', id: activeGroup.id, mode })}
-        onOpen={openInTree}
+        onOpen={setSelectedId}
+        side={mapSide}
         accentOf={accentById}
         viewerIds={viewerIds}
         exporting={exporting}
@@ -452,7 +498,8 @@ export function Workspace(props: Props) {
         mode={page.mode}
         onMode={(mode) => navigate({ kind: 'all', mode })}
         onBack={() => navigate({ kind: 'home' })}
-        onOpen={openInTree}
+        onOpen={setSelectedId}
+        side={mapSide}
         accentOf={accentById}
         viewerIds={viewerIds}
         treeControls={treeControls}
@@ -564,6 +611,8 @@ function VerticalPage(props: {
   mode: 'map' | 'tree'
   onMode: (mode: 'map' | 'tree') => void
   onOpen: (id: string) => void
+  /** The employee card for whoever was clicked on the map, if anyone. */
+  side: React.ReactNode
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
   exporting: boolean
@@ -771,12 +820,13 @@ function VerticalPage(props: {
         </Stat>
       </div>
 
+      <MapWithSide side={props.side}>
       <section className="card pad stack" aria-labelledby="map-h">
         <div className="spread wrap">
           <h2 id="map-h" className="h-md">
             Reporting map
           </h2>
-          <p className="meta">Click anyone to see them in the reporting tree.</p>
+          <p className="meta">Click anyone to see their card.</p>
         </div>
         <div className="hscroll">
           <ReportingMap
@@ -800,6 +850,7 @@ function VerticalPage(props: {
           />
         </div>
       </section>
+      </MapWithSide>
     </div>
   )
 }
@@ -831,6 +882,7 @@ function CompanyPage(props: {
   onMode: (mode: 'map' | 'tree') => void
   onBack: () => void
   onOpen: (id: string) => void
+  side: React.ReactNode
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
   treeControls: React.ReactNode
@@ -914,6 +966,7 @@ function CompanyPage(props: {
       {props.mode === 'tree' ? (
         props.tree
       ) : (
+        <MapWithSide side={props.side}>
         <section className="card pad stack" aria-label="Company reporting map">
           {forests.map(({ row, forest }) => (
             <div className="vrow" key={row.key}>
@@ -941,7 +994,19 @@ function CompanyPage(props: {
             </div>
           ))}
         </section>
+        </MapWithSide>
       )}
+    </div>
+  )
+}
+
+/** A map with the clicked person's card beside it; the map alone otherwise. */
+function MapWithSide(props: { side: React.ReactNode; children: React.ReactNode }) {
+  if (!props.side) return <>{props.children}</>
+  return (
+    <div className="split">
+      {props.children}
+      <div className="split-side side-sticky">{props.side}</div>
     </div>
   )
 }

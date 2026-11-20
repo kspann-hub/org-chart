@@ -17,7 +17,7 @@ type Props = {
   forest: Forest
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
-  /** Click on a person outside test mode: usually "show them in the tree". */
+  /** Click on a person outside test mode: opens their employee card. */
   onOpen: (id: string) => void
   test?: MapTest
   /** When set, each manager gets a +/− tab and only open ones show reports. */
@@ -140,7 +140,7 @@ function Card(
       className={cls}
       onClick={() => props.onOpen(node.id)}
       disabled={Boolean(props.test)}
-      title={props.test ? undefined : `Show ${node.name} in the tree`}
+      title={props.test ? undefined : `Show ${node.name}'s card`}
     >
       <span className="ringed" style={{ borderColor: accent }}>
         <Avatar node={node} size={size} />

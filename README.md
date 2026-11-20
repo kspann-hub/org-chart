@@ -318,6 +318,8 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
   with a LinkedIn badge opens that profile. Hire date needs
   `supabase/08_hire_date.sql` to have been run, and shows a dash until then.
   Admins get a pencil on the card that opens the full edit panel in place.
+  It is the same card everywhere: clicking a person on the circle, on a map
+  overview, in a reporting tree or on the full org chart all open it.
 - **Open a vertical** from the sidebar, or by clicking its coloured band. The
   circle answers "what does this place look like"; a vertical answers "who
   reports to whom". **Key** under the panel explains the rings and outlines.
