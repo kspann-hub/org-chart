@@ -1466,6 +1466,43 @@ button:disabled {
   height: 100%;
 }
 
+/* The admin-only pencil in the corner of the Overview's details card. */
+.has-corner {
+  position: relative;
+}
+
+.has-corner .who {
+  padding-right: 40px;
+}
+
+.card-corner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-soft);
+}
+
+.card-corner:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The edit panel, opened from the Overview in place of the details card. */
+.split-side .panel {
+  width: auto;
+  flex: none;
+  max-height: calc(100vh - 190px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
 /* Pin the zoom buttons to the card, not to the scrolling viewport — inside
    the viewport they scroll away with the chart as soon as you move it. */
 .circle-card .zoom-viewport,

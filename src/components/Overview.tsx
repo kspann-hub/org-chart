@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CircleLayout, CircleNode } from '../lib/circle'
 import { Avatar } from './Avatar'
 import { CircleChart } from './CircleChart'
-import { IconChevronDown, IconChevronRight, IconInfo, IconOrgChart } from './Icons'
+import { IconChevronDown, IconChevronRight, IconInfo, IconOrgChart, IconPencil } from './Icons'
 
 type Props = {
   circle: CircleLayout
@@ -10,6 +10,16 @@ type Props = {
   viewerIds: Set<string>
   onOpenGroup: (groupId: string, mode: 'map' | 'tree', focusId?: string) => void
   onOpenAll: (mode: 'map' | 'tree', focusId?: string) => void
+  /**
+   * Admins only: draws the edit panel for a seat. Absent for everyone else,
+   * which is what keeps the pencil off their screen.
+   */
+  renderEditor?: (args: {
+    id: string
+    onClose: () => void
+    /** Move the selection, e.g. to a seat just added, or to nothing. */
+    onSelect: (id: string | null) => void
+  }) => React.ReactNode
 }
 
 /**
@@ -23,10 +33,15 @@ export function Overview(props: Props) {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [showTeams, setShowTeams] = useState(true)
   const [showTeamNames, setShowTeamNames] = useState(true)
+  /** The seat whose edit panel is open in place of the details card. */
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   // A new pick on the circle always starts from that seat, not from a report
-  // of whoever was picked before.
-  useEffect(() => setDetailId(null), [selectedId])
+  // of whoever was picked before — and closes any editor that was open.
+  useEffect(() => {
+    setDetailId(null)
+    setEditingId(null)
+  }, [selectedId])
 
   const selected = selectedId ? circle.byId.get(selectedId) ?? null : null
   const detail = detailId ? circle.byId.get(detailId) ?? null : null
@@ -94,7 +109,28 @@ export function Overview(props: Props) {
         </section>
 
         <div className="split-side">
-          <section className="card pad" aria-live="polite">
+          {editingId && props.renderEditor ? (
+            props.renderEditor({
+              id: editingId,
+              onClose: () => setEditingId(null),
+              onSelect: (id) => {
+                setSelectedId(id)
+                setEditingId(id)
+              },
+            })
+          ) : (
+          <section className="card pad has-corner" aria-live="polite">
+            {props.renderEditor && (detail ?? selected) && (
+              <button
+                type="button"
+                className="card-corner"
+                aria-label={`Edit ${(detail ?? selected)!.name}`}
+                title="Edit this seat"
+                onClick={() => setEditingId((detail ?? selected)!.id)}
+              >
+                <IconPencil />
+              </button>
+            )}
             {!selected ? (
               <p className="muted">
                 Click anyone on the circle to see who they are — and, if they lead a team, who
@@ -135,6 +171,7 @@ export function Overview(props: Props) {
               />
             )}
           </section>
+          )}
 
           <details className="card key">
             <summary>
