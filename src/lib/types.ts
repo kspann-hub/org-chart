@@ -41,6 +41,8 @@ export type Employee = {
   /** Ajera's own reporting line. Used to seed the chart, not to draw it — the
    *  chart's shape lives in org_positions.parent_id once it's built. */
   supervisor_key: string | null
+  /** ISO date. Undefined until supabase/08_hire_date.sql has been run. */
+  hire_date?: string | null
 }
 
 /** One logged edit to a seat, from public.org_position_history. Admin-only. */

@@ -313,7 +313,11 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
 - **Hover anyone** to light their line back to their vertical's lead, plus
   their own direct reports. Click to keep it. The panel beside the circle then
   shows a lead's team (click a report for their details) or a person's
-  details, with **Show in tree** and **Map overview** to go further.
+  details, with **Show in tree** and **Map overview** to go further. Every
+  card, leads included, lists title, hire date, manager and email; a photo
+  with a LinkedIn badge opens that profile. Hire date needs
+  `supabase/08_hire_date.sql` to have been run, and shows a dash until then.
+  Admins get a pencil on the card that opens the full edit panel in place.
 - **Open a vertical** from the sidebar, or by clicking its coloured band. The
   circle answers "what does this place look like"; a vertical answers "who
   reports to whom". **Key** under the panel explains the rings and outlines.

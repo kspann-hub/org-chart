@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CircleLayout, CircleNode } from '../lib/circle'
 import { Avatar } from './Avatar'
 import { CircleChart } from './CircleChart'
+import { LINKEDIN_GLYPH, LINKEDIN_GLYPH_SIZE } from '../lib/linkedin'
 import { IconChevronDown, IconChevronRight, IconInfo, IconOrgChart, IconPencil } from './Icons'
 
 type Props = {
@@ -155,6 +156,7 @@ export function Overview(props: Props) {
                 viewer={props.viewerIds.has(selected.id)}
                 reports={reportsOf(selected.id)}
                 onPickReport={setDetailId}
+                onPickManager={setSelectedId}
                 onShowInTree={() => showInTree(selected)}
                 onShowMap={(() => {
                   const g = wedgeOf(selected)?.groupId
@@ -212,12 +214,47 @@ export function Overview(props: Props) {
   )
 }
 
+/** "March 2021" from an ISO date, read as a calendar date (no timezone shift). */
+function hireMonth(iso: string | null | undefined): string | null {
+  const m = iso?.match(/^(\d{4})-(\d{2})/)
+  if (!m) return null
+  return new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function Who({ node, viewer, size = 48 }: { node: CircleNode; viewer: boolean; size?: number }) {
+  const photo = (
+    <span className="ringed" style={{ borderColor: node.accent }}>
+      <Avatar node={node} size={size} />
+    </span>
+  )
   return (
     <div className="who">
-      <span className="ringed" style={{ borderColor: node.accent }}>
-        <Avatar node={node} size={size} />
-      </span>
+      {/* With a profile attached, the photo is the link to it and wears the
+          same LinkedIn badge the tree's boxes do. */}
+      {node.linkedinUrl ? (
+        <a
+          className="who-photo"
+          href={node.linkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${node.name} on LinkedIn`}
+          title={`${node.name} on LinkedIn`}
+        >
+          {photo}
+          <span className="who-li" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <g fill="#fff" transform={`translate(4.5 5) scale(${15 / LINKEDIN_GLYPH_SIZE})`}>
+                <path d={LINKEDIN_GLYPH} />
+              </g>
+            </svg>
+          </span>
+        </a>
+      ) : (
+        <span className="who-photo">{photo}</span>
+      )}
       <div className="who-text">
         <h2>
           {node.name}
@@ -231,7 +268,7 @@ function Who({ node, viewer, size = 48 }: { node: CircleNode; viewer: boolean; s
 
 function Pills({ node, circle }: { node: CircleNode; circle: CircleLayout }) {
   const wedge = circle.wedges.find((w) => w.key === node.wedgeKey)
-  const manager = node.position.parent_id ? circle.byId.get(node.position.parent_id) : null
+  if (!wedge && !node.stale && !node.vacant) return null
   return (
     <div className="pills">
       {wedge && (
@@ -240,10 +277,40 @@ function Pills({ node, circle }: { node: CircleNode; circle: CircleLayout }) {
           {wedge.name}
         </span>
       )}
-      {manager && <span className="pill muted">Reports to {manager.name}</span>}
       {node.stale && <span className="pill is-stale">Not active in Ajera</span>}
       {node.vacant && <span className="pill is-vacant">Vacant</span>}
     </div>
+  )
+}
+
+/** The same four facts for everyone, leads included. */
+function Facts(props: {
+  node: CircleNode
+  circle: CircleLayout
+  onPickManager: (id: string) => void
+}) {
+  const { node, circle } = props
+  const manager = node.position.parent_id ? circle.byId.get(node.position.parent_id) : null
+  const email = node.employee?.employee_email
+  return (
+    <dl className="facts">
+      <dt>Title</dt>
+      <dd>{node.title ?? '—'}</dd>
+      <dt>Hire date</dt>
+      <dd>{hireMonth(node.employee?.hire_date) ?? '—'}</dd>
+      <dt>Reports to</dt>
+      <dd>
+        {manager ? (
+          <button type="button" className="link" onClick={() => props.onPickManager(manager.id)}>
+            {manager.name}
+          </button>
+        ) : (
+          'Top of the chart'
+        )}
+      </dd>
+      <dt>Email</dt>
+      <dd>{email ? <a href={`mailto:${email}`}>{email}</a> : '—'}</dd>
+    </dl>
   )
 }
 
@@ -253,6 +320,7 @@ function LeadDetail(props: {
   viewer: boolean
   reports: CircleNode[]
   onPickReport: (id: string) => void
+  onPickManager: (id: string) => void
   onShowInTree: () => void
   onShowMap?: () => void
 }) {
@@ -263,6 +331,7 @@ function LeadDetail(props: {
       <p className="eyebrow">Team lead</p>
       <Who node={node} viewer={props.viewer} />
       <Pills node={node} circle={props.circle} />
+      <Facts node={node} circle={props.circle} onPickManager={props.onPickManager} />
       <div className="plist">
         <div className="plist-head">
           <p className="eyebrow">Reporting to {first}</p>
@@ -303,11 +372,7 @@ function PersonDetail(props: {
   onPickManager: (id: string) => void
   onShowInTree: () => void
 }) {
-  const { node, circle } = props
-  const wedge = circle.wedges.find((w) => w.key === node.wedgeKey)
-  const manager = node.position.parent_id ? circle.byId.get(node.position.parent_id) : null
-  const email = node.employee?.employee_email
-
+  const { node } = props
   return (
     <div className="stack">
       {props.back && (
@@ -316,44 +381,8 @@ function PersonDetail(props: {
         </button>
       )}
       <Who node={node} viewer={props.viewer} />
-      <dl className="facts">
-        <dt>Title</dt>
-        <dd>{node.title ?? '—'}</dd>
-        <dt>Vertical</dt>
-        <dd>{wedge?.name ?? '—'}</dd>
-        <dt>Reports to</dt>
-        <dd>
-          {manager ? (
-            <button type="button" className="link" onClick={() => props.onPickManager(manager.id)}>
-              {manager.name}
-            </button>
-          ) : (
-            'Top of the chart'
-          )}
-        </dd>
-        <dt>In Ajera</dt>
-        <dd>
-          {node.vacant
-            ? 'Vacant seat'
-            : node.stale
-              ? 'Not active'
-              : node.employee?.employment_status ?? '—'}
-        </dd>
-        {email && (
-          <>
-            <dt>Email</dt>
-            <dd>
-              <a href={`mailto:${email}`}>{email}</a>
-            </dd>
-          </>
-        )}
-        {node.manual && (
-          <>
-            <dt>Seat</dt>
-            <dd>Added by hand</dd>
-          </>
-        )}
-      </dl>
+      <Pills node={node} circle={props.circle} />
+      <Facts node={node} circle={props.circle} onPickManager={props.onPickManager} />
       <div className="row-wrap">
         <button type="button" className="btn" onClick={props.onShowInTree}>
           Show in tree
