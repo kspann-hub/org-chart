@@ -367,8 +367,12 @@ including WorkHold/Hold), potential (orange, Preliminary/Marketing) and past
 plus the projects they've charged time to in the last two weeks, a project for
 who's on it. Needs `supabase/10_map.sql`.
 
-- **Home base** is typed in by an admin on each seat (pencil, then Home base,
-  as "City, ST"). Ajera has no home location, so until it's set the map uses
+- **Home base** is set by an admin on each seat (pencil, then Home base): pick
+  a state, then a city from that state's Census list, which keeps every entry
+  in the same "City, ST" form. Or tick **Full-time traveler**: they have no
+  base, so the map shows them at the project they're charging the most time to
+  and their card says so. Both are stored in `home_base` (a traveler as the
+  text `Full-time traveler`), so no database change was needed. Ajera has no home location, so until it's set the map uses
   the project location they charged the most hours to in the last 90 days, and
   the card says "from timesheets".
 - Locations are matched against the Census Bureau's list of US places

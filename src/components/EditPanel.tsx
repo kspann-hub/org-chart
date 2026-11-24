@@ -1,7 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChartNode, Employee, Group } from '../lib/types'
 import { removeHeadshot, uploadHeadshot } from '../lib/photos'
 import { normaliseLinkedIn } from '../lib/linkedin'
+import {
+  citiesIn,
+  formatHomeBase,
+  isKnownCity,
+  parseHomeBase,
+  STATE_OPTIONS,
+  TRAVELER,
+} from '../lib/geo'
 import { Avatar } from './Avatar'
 
 type Props = {
@@ -31,7 +39,11 @@ export function EditPanel(props: Props) {
   const [showTitle, setShowTitle] = useState(true)
   const [employeeKey, setEmployeeKey] = useState('')
   const [linkedin, setLinkedin] = useState('')
-  const [homeBase, setHomeBase] = useState('')
+  const [hbState, setHbState] = useState('')
+  const [hbCity, setHbCity] = useState('')
+  const [traveler, setTraveler] = useState(false)
+  /** A stored value from before the dropdowns that the place list can't match. */
+  const [hbUnmatched, setHbUnmatched] = useState<string | null>(null)
   const [parentId, setParentId] = useState('')
   const [isGroup, setIsGroup] = useState(false)
   const [groupName, setGroupName] = useState('')
@@ -49,7 +61,11 @@ export function EditPanel(props: Props) {
     setShowTitle(node.position.show_title)
     setEmployeeKey(node.position.employee_key ?? '')
     setLinkedin(node.position.linkedin_url ?? '')
-    setHomeBase(node.position.home_base ?? '')
+    const hb = parseHomeBase(node.position.home_base)
+    setHbState(hb.state)
+    setHbCity(hb.city)
+    setTraveler(hb.traveler)
+    setHbUnmatched(hb.unmatched)
     setParentId(node.position.parent_id ?? '')
     setIsGroup(Boolean(props.group))
     setGroupName(props.group?.name ?? '')
@@ -59,6 +75,18 @@ export function EditPanel(props: Props) {
 
   const person = node.employee
   const hasHomeBase = 'home_base' in node.position
+
+  /** What to store: the traveler marker, "City, ST", "ST", or nothing. */
+  function homeBaseValue(): string | null {
+    if (traveler) return TRAVELER
+    // An old free-text value nobody has replaced yet is kept as it was.
+    if (!hbState && hbUnmatched) return hbUnmatched
+    return formatHomeBase(hbState, hbCity)
+  }
+
+  const cityOptions = useMemo(() => (hbState ? citiesIn(hbState) : []), [hbState])
+  const cityUnknown = Boolean(hbState && hbCity.trim() && !isKnownCity(hbCity, hbState))
+  const cityListId = `cities-${node.id}`
 
   async function save() {
     setSaving(true)
@@ -80,7 +108,7 @@ export function EditPanel(props: Props) {
         linkedin_url: linkedinUrl,
         // Only once 10_map.sql has added the column; naming a column the
         // table doesn't have makes the database refuse the whole save.
-        ...(hasHomeBase ? { home_base: homeBase.trim() || null } : {}),
+        ...(hasHomeBase ? { home_base: homeBaseValue() } : {}),
       })
       setLinkedin(linkedinUrl ?? '')
       await props.onSaveGroup(
@@ -239,18 +267,70 @@ export function EditPanel(props: Props) {
       </label>
 
       {hasHomeBase && (
-        <label>
-          <span>Home base</span>
-          <input
-            value={homeBase}
-            placeholder="Sacramento, CA"
-            onChange={(e) => setHomeBase(e.target.value)}
-          />
+        <fieldset className="homebase">
+          <legend>Home base</legend>
+          <label className="row">
+            <input
+              type="checkbox"
+              checked={traveler}
+              onChange={(e) => setTraveler(e.target.checked)}
+            />
+            <span>Full-time traveler</span>
+          </label>
+          {!traveler && (
+            <div className="homebase-pick">
+              <label>
+                <span>State</span>
+                <select
+                  value={hbState}
+                  onChange={(e) => {
+                    setHbState(e.target.value)
+                    setHbCity('')
+                  }}
+                >
+                  <option value="">—</option>
+                  {STATE_OPTIONS.map(([abbr, stateName]) => (
+                    <option key={abbr} value={abbr}>
+                      {stateName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>City</span>
+                <input
+                  value={hbCity}
+                  list={cityListId}
+                  disabled={!hbState}
+                  placeholder={hbState ? 'Start typing…' : 'Pick a state first'}
+                  onChange={(e) => setHbCity(e.target.value)}
+                />
+                <datalist id={cityListId}>
+                  {cityOptions.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+          )}
+          {!traveler && hbUnmatched && !hbState && (
+            <small className="warn-text">
+              Currently "{hbUnmatched}", which the map can't place. Pick a state and city to
+              replace it.
+            </small>
+          )}
+          {cityUnknown && (
+            <small className="warn-text">
+              "{hbCity}" isn't in the Census list of places in {hbState}. Pick a suggestion, or
+              it will sit in the middle of the state on the map.
+            </small>
+          )}
           <small>
-            Where they're based, as City, ST. It places them on the CriticalArc map;
-            left blank, the map uses the project they've charged the most time to.
+            {traveler
+              ? 'No fixed base. The map shows them at the project they are charging the most time to.'
+              : "Places them on the CriticalArc map. Left blank, the map uses the project they've charged the most time to."}
           </small>
-        </label>
+        </fieldset>
       )}
 
       <label>

@@ -156,3 +156,63 @@ export const stateOf = (p: Place) => p.key.split('|')[0]
 
 /** Rough distance in map pixels between two places (1px ≈ 4.5 km). */
 export const mapDistance = (a: Place, b: Place) => Math.hypot(a.x - b.x, a.y - b.y)
+
+// ------------------------------------------------------------ home base entry
+
+/** What home_base holds for someone with no fixed base. */
+export const TRAVELER = 'Full-time traveler'
+
+export const isTraveler = (homeBase: string | null | undefined) =>
+  (homeBase ?? '').trim().toLowerCase() === TRAVELER.toLowerCase()
+
+/** Every state the place list covers, as [abbreviation, name], by name. */
+export const STATE_OPTIONS: Array<[string, string]> = Object.keys(PLACES)
+  .filter((st) => STATES[st])
+  .map((st) => [st, STATES[st]] as [string, string])
+  .sort((a, b) => a[1].localeCompare(b[1]))
+
+const citiesCache = new Map<string, string[]>()
+
+/** A state's cities and towns, spelled the way the map will show them. */
+export function citiesIn(st: string): string[] {
+  let list = citiesCache.get(st)
+  if (!list) {
+    list = Object.keys(PLACES[st] ?? {})
+      .map(titleCase)
+      .sort((a, b) => a.localeCompare(b))
+    citiesCache.set(st, list)
+  }
+  return list
+}
+
+/** Whether `city` is in `st`'s list, forgiving case and "St."/"Saint". */
+export const isKnownCity = (city: string, st: string) => atCity(city, st) !== null
+
+/**
+ * Split a stored home_base back into what the editor shows. A value that
+ * can't be matched comes back as `unmatched`, so it can be shown rather than
+ * silently dropped.
+ */
+export function parseHomeBase(value: string | null | undefined): {
+  traveler: boolean
+  state: string
+  city: string
+  unmatched: string | null
+} {
+  const raw = (value ?? '').trim()
+  if (!raw) return { traveler: false, state: '', city: '', unmatched: null }
+  if (isTraveler(raw)) return { traveler: true, state: '', city: '', unmatched: null }
+  const place = locate(raw)
+  if (!place) return { traveler: false, state: '', city: '', unmatched: raw }
+  const st = stateOf(place)
+  return { traveler: false, state: st, city: place.approximate ? '' : place.label.replace(/, [A-Z]{2}$/, ''), unmatched: null }
+}
+
+/** The standard stored form: "City, ST", or just "ST" when no city is known. */
+export function formatHomeBase(state: string, city: string): string | null {
+  if (!state) return null
+  const c = city.trim()
+  if (!c) return state
+  const hit = atCity(c, state)
+  return `${hit ? hit.label.replace(/, [A-Z]{2}$/, '') : titleCase(c.toLowerCase())}, ${state}`
+}
