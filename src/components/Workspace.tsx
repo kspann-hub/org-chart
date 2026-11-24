@@ -268,6 +268,12 @@ export function Workspace(props: Props) {
     [membership, navigate],
   )
 
+  /** "Show on map" on a card: the CriticalArc map, flown to this person. */
+  const openOnPlaces = useCallback(
+    (id: string) => navigate({ kind: 'all', mode: 'places' }, id),
+    [navigate],
+  )
+
   const findMe = viewerIds.size > 0 ? () => openInTree([...viewerIds][0]) : undefined
 
   const clearFocus = useCallback(() => setFocusId(null), [])
@@ -377,13 +383,14 @@ export function Workspace(props: Props) {
   const personCard = (
     id: string,
     onSelect: (id: string | null) => void,
-    opts: { extra?: (shownId: string) => React.ReactNode } = {},
+    opts: { onPlaces?: boolean; extra?: (shownId: string) => React.ReactNode } = {},
   ) => (
     <PersonCard
       id={id}
       ctx={personCtx}
       onSelect={onSelect}
-      onShowOnMap={openInMap}
+      // Already on the CriticalArc map, the button would only reload it.
+      onShowOnMap={opts.onPlaces ? undefined : openOnPlaces}
       renderEditor={renderEditor}
       extra={opts.extra}
     />
@@ -570,7 +577,9 @@ export function Workspace(props: Props) {
               hours={map?.hours ?? null}
               loading={mapLoading || (!map && !mapError)}
               error={mapError}
-              personCard={(id, onSelect, extra) => personCard(id, onSelect, { extra })}
+              personCard={(id, onSelect, extra) => personCard(id, onSelect, { onPlaces: true, extra })}
+              focusId={focusId}
+              onFocusHandled={clearFocus}
             />
           </Suspense>
         }

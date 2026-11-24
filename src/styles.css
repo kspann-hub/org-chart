@@ -2774,3 +2774,40 @@ a.who-photo:hover .who-li {
 .has-corner.has-two-corners .who {
   padding-right: 84px;
 }
+
+/* The person "Show on map" flew to: their home pin rings out a few times. */
+.pin.is-found {
+  z-index: 4;
+}
+
+.pin.is-found::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 3px solid var(--pin-people);
+  pointer-events: none;
+  animation: pin-ring 1.1s ease-out 4;
+  opacity: 0;
+}
+
+@keyframes pin-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin.is-found::after {
+    animation: none;
+  }
+}

@@ -69,6 +69,9 @@ type Props = {
     onSelect: (id: string | null) => void,
     extra: (shownId: string) => React.ReactNode,
   ) => React.ReactNode
+  /** A person to open on arrival ("Show on map"): selected, zoomed to, pulsing. */
+  focusId?: string | null
+  onFocusHandled?: () => void
 }
 
 export function CAMap(props: Props) {
@@ -209,6 +212,21 @@ export function CAMap(props: Props) {
     return () => vp.removeEventListener('wheel', onWheel)
   }, [zoomAt])
 
+  // Arriving from "Show on map": once the data is in, select the person and
+  // fly to their home base. Someone the map can't place still gets their card,
+  // with a line saying why there is no pin.
+  const { focusId, onFocusHandled } = props
+  useEffect(() => {
+    if (!focusId || props.loading) return
+    onFocusHandled?.()
+    setSel({ kind: 'person', id: focusId })
+    const home = model.byId.get(focusId)?.home
+    const vp = vpRef.current
+    if (!home || !vp) return
+    const k = fitK.current * 5
+    setView({ k, x: vp.clientWidth / 2 - home.x * k, y: vp.clientHeight / 2 - home.y * k })
+  }, [focusId, props.loading, model, onFocusHandled])
+
   // ------------------------------------------------------------- selection
 
   const selPerson = sel?.kind === 'person' ? model.byId.get(sel.id) ?? null : null
@@ -272,6 +290,20 @@ export function CAMap(props: Props) {
             onProject={(key) => setSel({ kind: 'project', key })}
           />
         ))}
+      </div>
+    )
+  } else if (sel?.kind === 'person' && props.nodes.some((n) => n.id === sel.id)) {
+    // Selected, but not on the map: no home base, no recent timesheets, or
+    // not active in Ajera.
+    panel = (
+      <div className="stack">
+        <section className="card pad">
+          <p className="meta">
+            Not on the map: there's no home base set for this person and no recent timesheets to
+            place them by. Admins can add a home base from the pencil on the card.
+          </p>
+        </section>
+        {props.personCard(sel.id, (id) => pickPerson(id), () => null)}
       </div>
     )
   } else if (selProject) {
@@ -418,7 +450,9 @@ export function CAMap(props: Props) {
               <button
                 key={key}
                 type="button"
-                className={`pin is-${kind}${dim ? ' is-dim' : ''}${lit.has(key) ? ' is-lit' : ''}`}
+                className={`pin is-${kind}${dim ? ' is-dim' : ''}${lit.has(key) ? ' is-lit' : ''}${
+                  kind === 'people' && selPerson?.home?.key === spot.place.key ? ' is-found' : ''
+                }`}
                 style={{
                   left: spot.place.x * view.k + view.x + KIND_OFFSET[kind],
                   top: spot.place.y * view.k + view.y,
