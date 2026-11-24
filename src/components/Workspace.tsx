@@ -377,14 +377,13 @@ export function Workspace(props: Props) {
   const personCard = (
     id: string,
     onSelect: (id: string | null) => void,
-    opts: { inTree?: boolean; extra?: (shownId: string) => React.ReactNode } = {},
+    opts: { extra?: (shownId: string) => React.ReactNode } = {},
   ) => (
     <PersonCard
       id={id}
       ctx={personCtx}
       onSelect={onSelect}
-      onShowInTree={opts.inTree ? undefined : openInTree}
-      onShowMap={(g) => navigate({ kind: 'group', id: g, mode: 'map' })}
+      onShowOnMap={openInMap}
       renderEditor={renderEditor}
       extra={opts.extra}
     />
@@ -408,7 +407,7 @@ export function Workspace(props: Props) {
       admin={isAdmin}
       panel={
         selected ? (
-          <aside className="side-panel">{personCard(selected.id, selectInTree, { inTree: true })}</aside>
+          <aside className="side-panel">{personCard(selected.id, selectInTree)}</aside>
         ) : null
       }
     >
