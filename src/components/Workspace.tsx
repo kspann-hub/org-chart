@@ -141,9 +141,27 @@ export function Workspace(props: Props) {
     [nodes, membership, activeGroup],
   )
 
+  // The whole-company tree draws each vertical as its own tree, the way the
+  // map view does. Drawn literally, every lead hangs under whoever they report
+  // to (Brian and Logan under Justin), and the verticals vanish into one
+  // pyramid. Only the drawing changes: the real reporting line is untouched,
+  // and the card still says who each lead reports to.
+  const treeNodes = useMemo(() => {
+    if (activeGroup) return visibleNodes
+    const order = new Map(summaries.map((s, i) => [s.group.id, i]))
+    return nodes.map((n) => {
+      const parent = n.position.parent_id
+      if (!parent || membership.get(parent) === membership.get(n.id)) return n
+      // Lead of a vertical: start a tree of its own, in the verticals' order.
+      const g = membership.get(n.id)
+      const sort_order = g ? order.get(g) ?? 999 : 999
+      return { ...n, position: { ...n.position, parent_id: null, sort_order } }
+    })
+  }, [activeGroup, visibleNodes, nodes, membership, summaries])
+
   const layout = useMemo(
-    () => layoutChart(visibleNodes, collapsed, orientation),
-    [visibleNodes, collapsed, orientation],
+    () => layoutChart(treeNodes, collapsed, orientation),
+    [treeNodes, collapsed, orientation],
   )
 
   const circle = useMemo(() => layoutCircle(nodes, groups), [nodes, groups])
@@ -236,6 +254,18 @@ export function Workspace(props: Props) {
       navigate(groupId ? { kind: 'group', id: groupId, mode: 'tree' } : { kind: 'all', mode: 'tree' }, id)
     },
     [membership, nodes, navigate],
+  )
+
+  /**
+   * Open a seat on the map view of its vertical, selected, so its card shows
+   * and the map scrolls to it and makes it pulse. What search lands on.
+   */
+  const openInMap = useCallback(
+    (id: string) => {
+      const groupId = membership.get(id)
+      navigate(groupId ? { kind: 'group', id: groupId, mode: 'map' } : { kind: 'all', mode: 'map' }, id)
+    },
+    [membership, navigate],
   )
 
   const findMe = viewerIds.size > 0 ? () => openInTree([...viewerIds][0]) : undefined
@@ -395,7 +425,12 @@ export function Workspace(props: Props) {
         accentOf={accentById}
         onSelect={setSelectedId}
         onToggleCollapse={toggleCollapse}
-        onReparent={(child, parent) => void actions.reparent(child, parent)}
+        onReparent={(child, parent) => {
+          // A vertical's lead is drawn without its real manager (see
+          // treeNodes), so a drop back onto that manager would change nothing.
+          if (nodes.find((n) => n.id === child)?.position.parent_id === parent) return
+          void actions.reparent(child, parent)
+        }}
         onDragStateChange={setDraggingId}
         focusId={focusId}
         onFocusHandled={clearFocus}
@@ -489,6 +524,9 @@ export function Workspace(props: Props) {
         onMode={(mode) => navigate({ kind: 'group', id: activeGroup.id, mode })}
         onOpen={setSelectedId}
         side={mapSide}
+        selectedId={selectedId}
+        focusId={focusId}
+        onFocusHandled={clearFocus}
         accentOf={accentById}
         viewerIds={viewerIds}
         exporting={exporting}
@@ -518,6 +556,9 @@ export function Workspace(props: Props) {
         onBack={() => navigate({ kind: 'home' })}
         onOpen={setSelectedId}
         side={mapSide}
+        selectedId={selectedId}
+        focusId={focusId}
+        onFocusHandled={clearFocus}
         accentOf={accentById}
         viewerIds={viewerIds}
         treeControls={treeControls}
@@ -550,7 +591,7 @@ export function Workspace(props: Props) {
         results={searchResults}
         onPickResult={(id) => {
           setQuery('')
-          openInTree(id)
+          openInMap(id)
         }}
         onNavigate={(p) => navigate(p)}
         syncing={props.syncing}
@@ -643,6 +684,10 @@ function VerticalPage(props: {
   onOpen: (id: string) => void
   /** The employee card for whoever was clicked on the map, if anyone. */
   side: React.ReactNode
+  selectedId: string | null
+  /** Set when the map should scroll to a seat (search); cleared once it has. */
+  focusId: string | null
+  onFocusHandled: () => void
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
   exporting: boolean
@@ -1029,6 +1074,9 @@ function VerticalPage(props: {
             accentOf={props.accentOf}
             viewerIds={props.viewerIds}
             onOpen={props.onOpen}
+            selectedId={testOn ? null : props.selectedId}
+            focusId={props.focusId}
+            onFocusHandled={props.onFocusHandled}
             test={
               testOn
                 ? {
@@ -1088,6 +1136,9 @@ function CompanyPage(props: {
   onBack: () => void
   onOpen: (id: string) => void
   side: React.ReactNode
+  selectedId: string | null
+  focusId: string | null
+  onFocusHandled: () => void
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
   treeControls: React.ReactNode
@@ -1113,6 +1164,21 @@ function CompanyPage(props: {
   const [open, setOpen] = useState<Set<string> | null>(null)
   const effectiveOpen = open ?? defaultOpen
 
+  // A seat searched for may be folded away inside its vertical's map. Open
+  // every manager above it so the map has something to scroll to.
+  const { focusId } = props
+  useEffect(() => {
+    if (!focusId || props.mode !== 'map') return
+    const parentOf = new Map<string, string>()
+    for (const { forest } of forests) {
+      for (const [manager, kids] of forest.kids) for (const k of kids) parentOf.set(k.id, manager)
+    }
+    const above: string[] = []
+    for (let p = parentOf.get(focusId); p && !above.includes(p); p = parentOf.get(p)) above.push(p)
+    if (above.every((id) => effectiveOpen.has(id))) return
+    setOpen(new Set([...effectiveOpen, ...above]))
+  }, [focusId, props.mode, forests, effectiveOpen])
+
   return (
     <div className="page">
       <header className="page-head">
@@ -1130,7 +1196,7 @@ function CompanyPage(props: {
             {props.mode === 'map'
               ? 'Use + on any seat to open the level below it.'
               : props.mode === 'tree'
-                ? 'The whole company as one reporting tree, coloured by vertical.'
+                ? 'Each vertical as its own reporting tree, starting from its lead.'
                 : "Everyone at their home base, and the projects they're charging time to."}
           </p>
         </div>
@@ -1199,6 +1265,9 @@ function CompanyPage(props: {
                   accentOf={(id) => props.accentOf(id) ?? row.accent}
                   viewerIds={props.viewerIds}
                   onOpen={props.onOpen}
+                  selectedId={props.selectedId}
+                  focusId={props.focusId}
+                  onFocusHandled={props.onFocusHandled}
                   open={effectiveOpen}
                   onToggle={(id) =>
                     setOpen(() => {

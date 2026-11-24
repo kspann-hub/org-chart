@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ChartNode } from '../lib/types'
 import { countBelow, type Forest } from '../lib/tree'
 import { Avatar } from './Avatar'
@@ -67,6 +68,11 @@ type Props = {
   /** When set, each manager gets a +/− tab and only open ones show reports. */
   open?: Set<string>
   onToggle?: (id: string) => void
+  /** The person whose card is open: ringed, and pulsing as it arrives. */
+  selectedId?: string | null
+  /** Scroll this seat into view once it is drawn, then call onFocusHandled. */
+  focusId?: string | null
+  onFocusHandled?: () => void
 }
 
 const FALLBACK_ACCENT = '#6b7280'
@@ -81,9 +87,23 @@ const FALLBACK_ACCENT = '#6b7280'
  * the width of the tree.
  */
 export function ReportingMap(props: Props) {
-  const { forest } = props
+  const { forest, focusId, onFocusHandled } = props
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // No dependency list on purpose: the seat may only appear a render later,
+  // once its managers have been unfolded, so keep looking until it is there.
+  // A page can hold several maps (one per vertical); only the one holding the
+  // seat answers, the rest leave the request alone.
+  useEffect(() => {
+    if (!focusId) return
+    const el = rootRef.current?.querySelector(`[data-seat="${CSS.escape(focusId)}"]`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    onFocusHandled?.()
+  })
+
   return (
-    <div className="rmap">
+    <div className="rmap" ref={rootRef}>
       {forest.roots.map((root) => (
         <div className="rmap-root" key={root.id}>
           <Branch {...props} node={root} depth={0} />
@@ -174,6 +194,7 @@ function Card(
     node.vacant && 'is-vacant',
     node.manual && 'is-manual',
     props.viewerIds.has(node.id) && 'is-you',
+    props.selectedId === node.id && 'is-found',
     props.test?.selectedId === node.id && 'is-on',
     props.test?.changed.has(node.id) && 'is-moved',
     props.test?.dragId === node.id && 'is-dragging',
@@ -187,6 +208,7 @@ function Card(
     <button
       type="button"
       className={cls}
+      data-seat={node.id}
       onClick={() => (test ? test.onPick(node.id) : props.onOpen(node.id))}
       aria-pressed={test ? test.selectedId === node.id : undefined}
       title={
@@ -243,6 +265,7 @@ function TeamBox(props: Props & { manager: ChartNode; team: ChartNode[] }) {
             p.vacant && 'is-vacant',
             p.manual && 'is-manual',
             props.viewerIds.has(p.id) && 'is-you',
+            props.selectedId === p.id && 'is-found',
             picked && 'is-on',
             moved && 'is-moved',
             test?.dragId === p.id && 'is-dragging',
@@ -263,6 +286,7 @@ function TeamBox(props: Props & { manager: ChartNode; team: ChartNode[] }) {
               key={p.id}
               type="button"
               className={cls}
+              data-seat={p.id}
               aria-pressed={test ? picked : undefined}
               title={note || undefined}
               onClick={() => (test ? test.onPick(p.id) : props.onOpen(p.id))}
