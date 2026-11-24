@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChartNode, MapHours, MapProject } from '../lib/types'
-import { locate, mapDistance, MAP_H, MAP_PATHS, MAP_W, type Place } from '../lib/geo'
+import { isTraveler, locate, mapDistance, MAP_H, MAP_PATHS, MAP_W, type Place } from '../lib/geo'
 import { Avatar } from './Avatar'
 import { IconChevronRight } from './Icons'
 
@@ -43,8 +43,11 @@ type Work = { project: Proj; h14: number; h90: number }
 type Person = {
   node: ChartNode
   home: Place | null
-  /** 'set' = typed in by an admin; 'timesheets' = where they charge the most. */
-  homeSource: 'set' | 'timesheets' | null
+  /**
+   * 'set' = typed in by an admin; 'timesheets' = where they charge the most;
+   * 'traveler' = marked a full-time traveler, shown where they're working now.
+   */
+  homeSource: 'set' | 'timesheets' | 'traveler' | null
   work: Work[]
   travelling: boolean
 }
@@ -122,10 +125,18 @@ export function CAMap(props: Props) {
     for (const [key, node] of seatByEmployee) {
       if (node.stale) continue
       const work = (workByEmployee.get(key) ?? []).sort((a, b) => b.h14 - a.h14 || b.h90 - a.h90)
-      const set = locate(node.position.home_base, prefer)
+      const roaming = isTraveler(node.position.home_base)
+      const set = roaming ? null : locate(node.position.home_base, prefer)
       let home = set
       let homeSource: Person['homeSource'] = set ? 'set' : null
-      if (!home) {
+      if (roaming) {
+        // No base to show, so put them where the work is: this fortnight's
+        // biggest project, or failing that the last 90 days'.
+        const now = work.find((w) => w.h14 > 0 && w.project.place)
+        const top = now ?? [...work].sort((a, b) => b.h90 - a.h90).find((w) => w.project.place)
+        home = top?.project.place ?? null
+        homeSource = 'traveler'
+      } else if (!home) {
         const top = [...work].sort((a, b) => b.h90 - a.h90).find((w) => w.project.place)
         if (top) {
           home = top.project.place
@@ -528,8 +539,17 @@ function WorkRows(props: { person: Person | null; onProject: (key: string) => vo
       <dl className="facts">
         <dt>Home base</dt>
         <dd>
-          {p.home ? p.home.label : '—'}
-          {p.homeSource === 'timesheets' && <span className="meta"> · from timesheets</span>}
+          {p.homeSource === 'traveler' ? (
+            <>
+              Full-time traveler
+              {p.home && <span className="meta"> · now near {p.home.label}</span>}
+            </>
+          ) : (
+            <>
+              {p.home ? p.home.label : '—'}
+              {p.homeSource === 'timesheets' && <span className="meta"> · from timesheets</span>}
+            </>
+          )}
           {p.travelling && <span className="tag is-travel">Traveling</span>}
         </dd>
       </dl>
@@ -623,7 +643,11 @@ function SpotCard(props: {
                         .join(' · ')}
                     </span>
                   </span>
-                  {p.travelling && <span className="tag is-travel">Traveling</span>}
+                  {p.homeSource === 'traveler' ? (
+                    <span className="tag is-travel">Full-time traveler</span>
+                  ) : (
+                    p.travelling && <span className="tag is-travel">Traveling</span>
+                  )}
                   <IconChevronRight />
                 </button>
               ))
