@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChartNode } from '../lib/types'
 import { LINKEDIN_GLYPH, LINKEDIN_GLYPH_SIZE } from '../lib/linkedin'
 import { Avatar } from './Avatar'
-import { IconChevronRight, IconPencil } from './Icons'
+import { IconChevronRight, IconClose, IconPencil } from './Icons'
 
 /** What a card needs to know about the chart around the person. */
 export type PersonContext = {
@@ -87,18 +87,32 @@ export function PersonCard(props: Props) {
   const isLead = reports.length > 0
 
   return (
-    <section className="card pad has-corner person-card" aria-live="polite">
-      {props.renderEditor && (
+    <section
+      className={`card pad has-corner person-card${props.renderEditor ? ' has-two-corners' : ''}`}
+      aria-live="polite"
+    >
+      <div className="card-corners">
+        {props.renderEditor && (
+          <button
+            type="button"
+            className="card-corner"
+            aria-label={`Edit ${shown.name}`}
+            title="Edit this seat"
+            onClick={() => setEditing(true)}
+          >
+            <IconPencil />
+          </button>
+        )}
         <button
           type="button"
           className="card-corner"
-          aria-label={`Edit ${shown.name}`}
-          title="Edit this seat"
-          onClick={() => setEditing(true)}
+          aria-label="Close this card"
+          title="Close"
+          onClick={() => props.onSelect(null)}
         >
-          <IconPencil />
+          <IconClose />
         </button>
-      )}
+      </div>
 
       <div className="stack">
         {detailId ? (

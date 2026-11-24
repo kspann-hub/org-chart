@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ChartNode } from '../lib/types'
 import { countBelow, type Forest } from '../lib/tree'
 import { Avatar } from './Avatar'
@@ -5,12 +6,56 @@ import { Avatar } from './Avatar'
 /** Test mode's hooks into the map. Absent outside test mode. */
 export type MapTest = {
   selectedId: string | null
-  /** How the "Move … here" button refers to the picked seat. */
-  selectedName: string
-  /** Seats moved in this sandbox: seat id -> the manager it was moved to. */
-  moved: Map<string, string>
+  /** The seat being dragged right now, if any. */
+  dragId: string | null
+  /** The drop target under the pointer, so it can light up. */
+  overKey: string | null
+  /** Seats moved or added in this sandbox, drawn in test purple. */
+  changed: Set<string>
   onPick: (id: string) => void
-  onMoveHere: (managerId: string) => void
+  onDragStart: (id: string) => void
+  onDragEnd: () => void
+  onOver: (key: string | null) => void
+  /** Whether the dragged seat may report to `managerId` (no loops, no no-ops). */
+  canDrop: (managerId: string) => boolean
+  /** Make the dragged seat report to `managerId`. */
+  onDrop: (managerId: string) => void
+}
+
+/**
+ * Drag-and-drop wiring for one element in test mode. `managerId` is who the
+ * dropped seat will report to; `key` names this target for the hover glow.
+ */
+function dnd(test: MapTest | undefined, managerId: string, key: string, dragId?: string) {
+  if (!test) return {}
+  return {
+    draggable: dragId !== undefined,
+    onDragStart: (e: React.DragEvent) => {
+      if (dragId === undefined) return
+      e.stopPropagation()
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', dragId)
+      test.onDragStart(dragId)
+    },
+    onDragEnd: () => test.onDragEnd(),
+    onDragOver: (e: React.DragEvent) => {
+      if (!test.dragId || !test.canDrop(managerId)) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.dataTransfer.dropEffect = 'move'
+      if (test.overKey !== key) test.onOver(key)
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (test.overKey === key && !e.currentTarget.contains(e.relatedTarget as Node | null)) {
+        test.onOver(null)
+      }
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      test.onDrop(managerId)
+    },
+  }
 }
 
 type Props = {
@@ -23,6 +68,11 @@ type Props = {
   /** When set, each manager gets a +/− tab and only open ones show reports. */
   open?: Set<string>
   onToggle?: (id: string) => void
+  /** The person whose card is open: ringed, and pulsing as it arrives. */
+  selectedId?: string | null
+  /** Scroll this seat into view once it is drawn, then call onFocusHandled. */
+  focusId?: string | null
+  onFocusHandled?: () => void
 }
 
 const FALLBACK_ACCENT = '#6b7280'
@@ -37,9 +87,23 @@ const FALLBACK_ACCENT = '#6b7280'
  * the width of the tree.
  */
 export function ReportingMap(props: Props) {
-  const { forest } = props
+  const { forest, focusId, onFocusHandled } = props
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // No dependency list on purpose: the seat may only appear a render later,
+  // once its managers have been unfolded, so keep looking until it is there.
+  // A page can hold several maps (one per vertical); only the one holding the
+  // seat answers, the rest leave the request alone.
+  useEffect(() => {
+    if (!focusId) return
+    const el = rootRef.current?.querySelector(`[data-seat="${CSS.escape(focusId)}"]`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    onFocusHandled?.()
+  })
+
   return (
-    <div className="rmap">
+    <div className="rmap" ref={rootRef}>
       {forest.roots.map((root) => (
         <div className="rmap-root" key={root.id}>
           <Branch {...props} node={root} depth={0} />
@@ -130,17 +194,29 @@ function Card(
     node.vacant && 'is-vacant',
     node.manual && 'is-manual',
     props.viewerIds.has(node.id) && 'is-you',
+    props.selectedId === node.id && 'is-found',
+    props.test?.selectedId === node.id && 'is-on',
+    props.test?.changed.has(node.id) && 'is-moved',
+    props.test?.dragId === node.id && 'is-dragging',
+    props.test?.overKey === node.id && 'is-drop',
   ]
     .filter(Boolean)
     .join(' ')
+  const test = props.test
 
   return (
     <button
       type="button"
       className={cls}
-      onClick={() => props.onOpen(node.id)}
-      disabled={Boolean(props.test)}
-      title={props.test ? undefined : `Show ${node.name}'s card`}
+      data-seat={node.id}
+      onClick={() => (test ? test.onPick(node.id) : props.onOpen(node.id))}
+      aria-pressed={test ? test.selectedId === node.id : undefined}
+      title={
+        test
+          ? 'Drag onto a person or team to move. Click to select.'
+          : `Show ${node.name}'s card`
+      }
+      {...dnd(test, node.id, node.id, node.id)}
     >
       <span className="ringed" style={{ borderColor: accent }}>
         <Avatar node={node} size={size} />
@@ -163,35 +239,37 @@ function Card(
 
 function TeamBox(props: Props & { manager: ChartNode; team: ChartNode[] }) {
   const { manager, team, test } = props
-  const canDrop =
-    test?.selectedId != null &&
-    test.selectedId !== manager.id &&
-    !team.some((t) => t.id === test.selectedId)
+  const teamKey = `team:${manager.id}`
+  const cls = [
+    'rmap-team',
+    test && 'is-test',
+    test?.overKey === teamKey && 'is-drop',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <div className={test ? 'rmap-team is-test' : 'rmap-team'}>
+    <div className={cls} {...dnd(test, manager.id, teamKey)}>
       <div className="rmap-team-head">
         <span className="eyebrow">
           {team.length} direct {team.length === 1 ? 'report' : 'reports'}
         </span>
-        {canDrop && (
-          <button type="button" className="btn sm is-test" onClick={() => test!.onMoveHere(manager.id)}>
-            Move {test!.selectedName} here
-          </button>
-        )}
       </div>
       <div className="rmap-chips">
         {team.map((p) => {
           const picked = test?.selectedId === p.id
-          const moved = test?.moved.has(p.id)
+          const moved = test?.changed.has(p.id)
           const cls = [
             'chip',
             p.stale && 'is-stale',
             p.vacant && 'is-vacant',
             p.manual && 'is-manual',
             props.viewerIds.has(p.id) && 'is-you',
+            props.selectedId === p.id && 'is-found',
             picked && 'is-on',
             moved && 'is-moved',
+            test?.dragId === p.id && 'is-dragging',
+            test?.overKey === p.id && 'is-drop',
           ]
             .filter(Boolean)
             .join(' ')
@@ -208,9 +286,11 @@ function TeamBox(props: Props & { manager: ChartNode; team: ChartNode[] }) {
               key={p.id}
               type="button"
               className={cls}
+              data-seat={p.id}
               aria-pressed={test ? picked : undefined}
               title={note || undefined}
               onClick={() => (test ? test.onPick(p.id) : props.onOpen(p.id))}
+              {...dnd(test, p.id, p.id, p.id)}
             >
               <span className="chip-name">
                 <i

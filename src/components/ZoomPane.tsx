@@ -206,6 +206,9 @@ export const ZoomPane = forwardRef<ZoomPaneHandle, Props>(function ZoomPane(prop
     // Clicks on the scrollbars land inside the viewport but belong to it.
     const r = vp.getBoundingClientRect()
     if (e.clientX - r.left > vp.clientWidth || e.clientY - r.top > vp.clientHeight) return
+    // The zoom buttons live inside the viewport. Capturing the pointer for a
+    // pan here would steal their click, which is why + and − did nothing.
+    if ((e.target as Element).closest('.zoom-controls')) return
     if (panIgnore && (e.target as Element).closest(panIgnore)) return
 
     // Touching the background still means "never mind, deselect" — but touch
@@ -214,6 +217,10 @@ export const ZoomPane = forwardRef<ZoomPaneHandle, Props>(function ZoomPane(prop
     props.onPanStart?.()
     if (e.pointerType !== 'mouse') return
 
+    // A mouse drag is otherwise also a text selection, which is what lit up
+    // stray names and headings across the page while panning.
+    e.preventDefault()
+    window.getSelection()?.removeAllRanges()
     vp.setPointerCapture(e.pointerId)
     pan.current = { x: e.clientX, y: e.clientY, sx: vp.scrollLeft, sy: vp.scrollTop }
     setIsPanning(true)

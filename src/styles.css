@@ -199,10 +199,18 @@ button:disabled {
   touch-action: auto;
   overscroll-behavior: contain;
   scrollbar-color: var(--line-strong) transparent;
+  /* Dragging pans; without this it also selects whatever text it crosses. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .zoom-viewport.is-panning {
   cursor: grabbing;
+}
+
+body:has(.zoom-viewport.is-panning) {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Wide enough to notice without a hunt, and given a visible resting thumb —
@@ -2120,6 +2128,46 @@ a.who-photo:hover .who-li {
   margin-left: auto;
 }
 
+/* Test mode on the map: select, drag, drop. */
+.test-tools {
+  align-items: center;
+}
+
+.test-input {
+  width: 200px;
+  min-height: 30px;
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
+.rmap-node.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rmap-node.is-moved {
+  border-style: dashed;
+  border-color: var(--test);
+}
+
+.rmap-node[draggable='true'],
+.chip[draggable='true'] {
+  cursor: grab;
+}
+
+.rmap-node.is-dragging,
+.chip.is-dragging {
+  opacity: 0.4;
+}
+
+.rmap-node.is-drop,
+.chip.is-drop,
+.rmap-team.is-drop {
+  border-color: var(--test);
+  background: var(--test-soft);
+  box-shadow: 0 0 0 2px var(--test);
+}
+
 .vrow {
   display: flex;
   flex-direction: column;
@@ -2674,4 +2722,55 @@ a.who-photo:hover .who-li {
     box-shadow: none;
     break-inside: avoid;
   }
+}
+
+/* The person whose card is open on a map view. Search lands here too, so the
+   ring pulses a few times on arrival — enough to find it on a busy vertical —
+   then settles into a steady outline. */
+.rmap-node.is-found,
+.chip.is-found {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent);
+  animation: found-pulse 0.9s ease-out 3;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes found-pulse {
+  0% {
+    box-shadow: 0 0 0 3px var(--accent), 0 0 0 3px color-mix(in srgb, var(--accent) 60%, transparent);
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.06);
+  }
+  100% {
+    box-shadow: 0 0 0 3px var(--accent), 0 0 0 18px color-mix(in srgb, var(--accent) 0%, transparent);
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rmap-node.is-found,
+  .chip.is-found {
+    animation: none;
+  }
+}
+
+/* The pencil and the close button share the card's top-right corner. */
+.card-corners {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.card-corners .card-corner {
+  position: static;
+}
+
+.has-corner.has-two-corners .who {
+  padding-right: 84px;
 }

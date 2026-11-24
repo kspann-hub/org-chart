@@ -147,3 +147,9 @@ export const IconTrash = (p: Props) => (
     <path d="M7 7l1 13h8l1-13" />
   </Svg>
 )
+
+export const IconClose = (p: Props) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </Svg>
+)

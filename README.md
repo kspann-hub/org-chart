@@ -339,9 +339,13 @@ then the reporting line as columns — lead, managers, and each manager's team
 as a compact box of names. Click anyone to see them in the **reporting tree**,
 the pan-and-zoom chart that admins edit.
 
-**Test mode** on the map overview is a sandbox: click a person, then *Move …
-here* on another manager's team, and the map redraws as if you had. The moves
-are listed with an undo each. Nothing is saved — not to the chart, not to
+**Test mode** on the map overview is a sandbox. Drag anyone — managers
+included — onto a person or a team to change who they report to (moves that
+would make someone report to their own team are refused). Click someone to
+select them, then **Add role** to put a new open role under them, or
+**Remove** them; a removed seat's reports move up to its manager. The map and
+the headline numbers redraw as you go, and every change is listed with an
+undo. Nothing is saved — not to the chart, not to
 Ajera — and leaving the page or **Exit test mode** throws the copy away.
 
 **Full org chart** shows every vertical the same way, folded to leads and
