@@ -216,3 +216,17 @@ export function formatHomeBase(state: string, city: string): string | null {
   const hit = atCity(c, state)
   return `${hit ? hit.label.replace(/, [A-Z]{2}$/, '') : titleCase(c.toLowerCase())}, ${state}`
 }
+
+/** Each state's box on the map, [[left, top], [right, bottom]], by abbreviation. */
+export const STATE_BOUNDS = new Map(
+  stateFeatures.map((f) => [
+    ABBR_BY_NAME.get(f.properties.name.toLowerCase()) ?? f.properties.name,
+    flatPath.bounds(f) as [[number, number], [number, number]],
+  ]),
+)
+
+/** Full state name for an abbreviation ("CA" -> "California"). */
+export const stateName = (st: string) => STATES[st] ?? st
+
+/** Abbreviation for a state's name as the map's outlines spell it. */
+export const stateAbbr = (name: string) => ABBR_BY_NAME.get(name.toLowerCase()) ?? name

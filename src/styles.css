@@ -2964,3 +2964,15 @@ a.who-photo:hover .who-li {
   font-weight: 600;
   color: var(--text-soft);
 }
+
+/* The state picked in the map's State dropdown. */
+.camap-state.is-picked {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.camap-svg.has-pick .camap-state:not(.is-picked) {
+  opacity: 0.35;
+}
