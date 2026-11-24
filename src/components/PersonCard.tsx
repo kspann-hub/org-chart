@@ -20,9 +20,8 @@ type Props = {
   ctx: PersonContext
   /** Move the selection on whatever screen hosts the card (null clears it). */
   onSelect: (id: string | null) => void
-  /** Absent when the card is already beside the tree. */
-  onShowInTree?: (id: string) => void
-  onShowMap?: (groupId: string) => void
+  /** Open the person on their vertical's map view, highlighted. */
+  onShowOnMap?: (id: string) => void
   /**
    * Admins only: draws the edit panel. Absent for everyone else, which is what
    * keeps the pencil off their screen — the database refuses their writes
@@ -181,18 +180,11 @@ export function PersonCard(props: Props) {
           </div>
         )}
 
-        {(props.onShowInTree || (isLead && vertical && props.onShowMap)) && (
+        {props.onShowOnMap && (
           <div className="row-wrap">
-            {props.onShowInTree && (
-              <button type="button" className="btn" onClick={() => props.onShowInTree!(shown.id)}>
-                Show in tree
-              </button>
-            )}
-            {isLead && vertical && props.onShowMap && (
-              <button type="button" className="btn" onClick={() => props.onShowMap!(vertical.id)}>
-                Map overview
-              </button>
-            )}
+            <button type="button" className="btn" onClick={() => props.onShowOnMap!(shown.id)}>
+              Show on map
+            </button>
           </div>
         )}
       </div>
