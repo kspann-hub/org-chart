@@ -2811,3 +2811,78 @@ a.who-photo:hover .who-li {
     animation: none;
   }
 }
+
+/* Map view, top-down: the same markup as the columns, turned on its side.
+   Each manager's reports sit in a row beneath them, joined by a bar across
+   the top of the row and a short drop into each child. */
+.rmap.is-down {
+  width: max-content;
+  min-width: 100%;
+  align-items: center;
+}
+
+.rmap.is-down .rmap-row {
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rmap.is-down .rmap-stub {
+  width: 0;
+  height: 20px;
+  border-top: 0;
+  border-left: 1.5px solid var(--line-strong);
+}
+
+.rmap.is-down .rmap-br {
+  flex: none;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.rmap.is-down .rmap-it {
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 8px 0;
+}
+
+.rmap.is-down .rmap-it::before {
+  left: 50%;
+  top: 0;
+  width: 0;
+  height: 20px;
+  border-top: 0;
+  border-left: 1.5px solid var(--line-strong);
+}
+
+.rmap.is-down .rmap-it::after {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: auto;
+  border-left: 0;
+  border-top: 1.5px solid var(--line-strong);
+}
+
+.rmap.is-down .rmap-it.is-first::after {
+  top: 0;
+  left: 50%;
+}
+
+.rmap.is-down .rmap-it.is-last::after {
+  bottom: auto;
+  right: 50%;
+}
+
+/* Under a manager, a team is a narrow stack of names rather than a wide
+   strip, so siblings stay side by side without the chart sprawling. */
+.rmap.is-down .rmap-team {
+  flex: none;
+  width: 240px;
+  min-width: 0;
+}
+
+.rmap.is-down .rmap-chips {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}

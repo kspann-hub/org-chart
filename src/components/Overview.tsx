@@ -7,7 +7,7 @@ type Props = {
   circle: CircleLayout
   verticalCount: number
   viewerIds: Set<string>
-  onOpenAll: (mode: 'map' | 'tree') => void
+  onOpenAll: (mode: 'map') => void
   onOpenGroup: (groupId: string) => void
   /** The shared employee card for a seat; the same one every screen shows. */
   renderPerson: (id: string, onSelect: (id: string | null) => void) => React.ReactNode
