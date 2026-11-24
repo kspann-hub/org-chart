@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChartNode, MapHours, MapProject } from '../lib/types'
-import { isTraveler, locate, mapDistance, MAP_H, MAP_PATHS, MAP_W, type Place } from '../lib/geo'
+import {
+  isTraveler,
+  locate,
+  mapDistance,
+  MAP_H,
+  MAP_PATHS,
+  MAP_W,
+  STATE_BOUNDS,
+  stateAbbr,
+  stateName,
+  stateOf,
+  type Place,
+} from '../lib/geo'
 import { Avatar } from './Avatar'
 import { IconChevronRight } from './Icons'
 
@@ -97,6 +109,8 @@ type Props = {
 export function CAMap(props: Props) {
   const [sel, setSel] = useState<Sel>(null)
   const [who, setWho] = useState<Who>('all')
+  /** The State dropdown: an abbreviation, or '' for the whole country. */
+  const [st, setSt] = useState('')
   const [query, setQuery] = useState('')
   const [shown, setShown] = useState<Record<Kind, boolean>>({
     people: true,
@@ -203,19 +217,37 @@ export function CAMap(props: Props) {
 
   /** The spots with only the people the filter keeps. Projects are untouched. */
   const spots = useMemo(() => {
-    if (who === 'all') return model.spots
+    if (who === 'all' && !st) return model.spots
     const out = new Map<string, Spot>()
     for (const [key, spot] of model.spots) {
-      out.set(key, { ...spot, people: spot.people.filter((p) => isWho(p, who)) })
+      // With a state picked, everything outside it goes, projects included.
+      if (st && stateOf(spot.place) !== st) continue
+      out.set(key, who === 'all' ? spot : { ...spot, people: spot.people.filter((p) => isWho(p, who)) })
     }
     return out
-  }, [model, who])
+  }, [model, who, st])
 
   const everyone = useMemo(
     () => [...model.byId.values()].sort((a, b) => a.node.name.localeCompare(b.node.name)),
     [model],
   )
-  const filtered = useMemo(() => everyone.filter((p) => isWho(p, who)), [everyone, who])
+  const inState = useCallback((p: Person) => !st || (p.home !== null && stateOf(p.home) === st), [st])
+  const filtered = useMemo(
+    () => everyone.filter((p) => isWho(p, who) && inState(p)),
+    [everyone, who, inState],
+  )
+
+  /** States with anything on the map, by name, with how many people are there. */
+  const stateOptions = useMemo(() => {
+    const people = new Map<string, number>()
+    for (const spot of model.spots.values()) {
+      const code = stateOf(spot.place)
+      people.set(code, (people.get(code) ?? 0) + spot.people.length)
+    }
+    return [...people]
+      .map(([code, count]) => ({ code, name: stateName(code), count }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [model])
 
   // Every word, any order, against name, title and email, like the sidebar.
   const q = query.trim().toLowerCase()
@@ -255,6 +287,38 @@ export function CAMap(props: Props) {
   }, [])
 
   useLayoutEffect(fit, [fit])
+
+  /** Fill the map with one state, with a margin round it. */
+  const fitState = useCallback(
+    (code: string) => {
+      const vp = vpRef.current
+      const b = STATE_BOUNDS.get(code)
+      if (!vp || !b) return
+      const [[x0, y0], [x1, y1]] = b
+      const k = Math.min(
+        fitK.current * 16,
+        Math.min(vp.clientWidth / (x1 - x0), vp.clientHeight / (y1 - y0)) * 0.85,
+      )
+      setView({
+        k,
+        x: vp.clientWidth / 2 - ((x0 + x1) / 2) * k,
+        y: vp.clientHeight / 2 - ((y0 + y1) / 2) * k,
+      })
+    },
+    [],
+  )
+
+  function pickState(code: string) {
+    setSt(code)
+    setSel(null)
+    if (code) fitState(code)
+    else fit()
+  }
+
+  function wholeCountry() {
+    setSt('')
+    fit()
+  }
 
   const zoomAt = useCallback((factor: number, px?: number, py?: number) => {
     const vp = vpRef.current
@@ -302,6 +366,8 @@ export function CAMap(props: Props) {
   useEffect(() => {
     if (!focusId || props.loading) return
     onFocusHandled?.()
+    setWho('all')
+    setSt('')
     flyTo(focusId)
   }, [focusId, props.loading, flyTo, onFocusHandled])
 
@@ -310,6 +376,7 @@ export function CAMap(props: Props) {
     // A filter that hides them would leave the zoom pointing at an empty spot.
     const p = model.byId.get(id)
     if (p && !isWho(p, who)) setWho('all')
+    if (p && !inState(p)) setSt('')
     flyTo(id)
   }
 
@@ -420,17 +487,19 @@ export function CAMap(props: Props) {
         onProject={(key) => setSel({ kind: 'project', key, from: { key: spot.place.key, type: sel.type } })}
       />
     )
-  } else if (who !== 'all' && !props.loading) {
+  } else if ((who !== 'all' || st) && !props.loading) {
     // With a filter on, the panel lists who it kept, so nobody without a pin
     // (no home base and no timesheets) is missing from the answer.
     panel = (
       <section className="card pad stack">
         <div className="plist-head">
-          <h2 className="h-sm">{WHO_LABEL[who]}</h2>
+          <h2 className="h-sm">
+            {[st && stateName(st), who !== 'all' && WHO_LABEL[who]].filter(Boolean).join(' · ')}
+          </h2>
           <p className="eyebrow mono">{filtered.length}</p>
         </div>
         {filtered.length === 0 ? (
-          <p className="meta">Nobody right now.</p>
+          <p className="meta">{st ? 'Nobody placed in this state.' : 'Nobody right now.'}</p>
         ) : (
           <div className="plist">
             {filtered.map((p) => (
@@ -539,6 +608,18 @@ export function CAMap(props: Props) {
               ))}
             </select>
           </label>
+          <label className="camap-filter">
+            <span>State</span>
+            <select value={st} onChange={(e) => pickState(e.target.value)}>
+              <option value="">All states</option>
+              {stateOptions.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.name}
+                  {o.count ? ` (${o.count})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       <section className="card camap-card" aria-label="Map of people and projects">
         <div
@@ -572,12 +653,12 @@ export function CAMap(props: Props) {
           onKeyDown={(e) => {
             if (e.key === '+' || e.key === '=') zoomAt(1.25)
             else if (e.key === '-' || e.key === '_') zoomAt(0.8)
-            else if (e.key === '0') fit()
+            else if (e.key === '0') wholeCountry()
             else return
             e.preventDefault()
           }}
         >
-          <svg className="camap-svg" width="100%" height="100%" aria-hidden="true">
+          <svg className={st ? 'camap-svg has-pick' : 'camap-svg'} width="100%" height="100%" aria-hidden="true">
             <defs>
               <pattern id="camap-hatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
                 <rect width="5" height="5" fill="#5a2a0b" />
@@ -586,7 +667,11 @@ export function CAMap(props: Props) {
             </defs>
             <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
               {MAP_PATHS.states.map((s) => (
-                <path key={s.name} d={s.d} className="camap-state" />
+                <path
+                  key={s.name}
+                  d={s.d}
+                  className={st && stateAbbr(s.name) === st ? 'camap-state is-picked' : 'camap-state'}
+                />
               ))}
               <path d={MAP_PATHS.borders} className="camap-border" vectorEffect="non-scaling-stroke" />
               <path d={MAP_PATHS.nation} className="camap-coast" vectorEffect="non-scaling-stroke" />
@@ -666,7 +751,7 @@ export function CAMap(props: Props) {
           <button aria-label="Zoom in" title="Zoom in" onClick={() => zoomAt(1.25)}>
             +
           </button>
-          <button className="zoom-fit" title="Show the whole country" onClick={fit}>
+          <button className="zoom-fit" title="Show the whole country" onClick={wholeCountry}>
             Whole country
           </button>
         </div>

@@ -372,6 +372,9 @@ pin and opens their card) and a **Show** filter: Everyone, Full-time
 travelers, Home base set, or No home base yet. With a filter on, only those
 people keep their pins, and the panel lists them, including anyone who has no
 pin at all. "No home base yet" is the to-do list for whoever fills these in.
+**State** zooms to one state, fades the rest, keeps only that state's pins and
+lists the people placed there; it combines with Show ("California · Full-time
+travelers"). **Whole country** clears it.
 
 - **Home base** is set by an admin on each seat (pencil, then Home base): pick
   a state, then a city from that state's Census list, which keeps every entry
