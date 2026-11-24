@@ -36,6 +36,23 @@ export function kindOf(status: string | null): { kind: Exclude<Kind, 'people'>; 
   return { kind: 'past', onHold: false }
 }
 
+/** The toolbar's "Show" filter: which people get pins. */
+type Who = 'all' | 'traveler' | 'set' | 'missing'
+
+const WHO_LABEL: Record<Who, string> = {
+  all: 'Everyone',
+  traveler: 'Full-time travelers',
+  set: 'Home base set',
+  missing: 'No home base yet',
+}
+
+function isWho(p: { homeSource: string | null }, who: Who): boolean {
+  if (who === 'all') return true
+  if (who === 'traveler') return p.homeSource === 'traveler'
+  if (who === 'set') return p.homeSource === 'set'
+  return p.homeSource === 'timesheets' || p.homeSource === null
+}
+
 type Proj = MapProject & { place: Place | null; kind: Exclude<Kind, 'people'>; onHold: boolean }
 
 type Work = { project: Proj; h14: number; h90: number }
@@ -79,6 +96,8 @@ type Props = {
 
 export function CAMap(props: Props) {
   const [sel, setSel] = useState<Sel>(null)
+  const [who, setWho] = useState<Who>('all')
+  const [query, setQuery] = useState('')
   const [shown, setShown] = useState<Record<Kind, boolean>>({
     people: true,
     active: true,
@@ -180,6 +199,46 @@ export function CAMap(props: Props) {
     }
   }, [props.nodes, props.projects, props.hours])
 
+  // ------------------------------------------------------------ filtering
+
+  /** The spots with only the people the filter keeps. Projects are untouched. */
+  const spots = useMemo(() => {
+    if (who === 'all') return model.spots
+    const out = new Map<string, Spot>()
+    for (const [key, spot] of model.spots) {
+      out.set(key, { ...spot, people: spot.people.filter((p) => isWho(p, who)) })
+    }
+    return out
+  }, [model, who])
+
+  const everyone = useMemo(
+    () => [...model.byId.values()].sort((a, b) => a.node.name.localeCompare(b.node.name)),
+    [model],
+  )
+  const filtered = useMemo(() => everyone.filter((p) => isWho(p, who)), [everyone, who])
+
+  // Every word, any order, against name, title and email, like the sidebar.
+  const q = query.trim().toLowerCase()
+  const results = useMemo(() => {
+    if (!q) return []
+    const words = q.split(/\s+/)
+    return everyone
+      .filter((p) => {
+        const hay = [p.node.name, p.node.title, p.node.employee?.full_name, p.node.employee?.employee_email]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return words.every((w) => hay.includes(w))
+      })
+      .sort(
+        (a, b) =>
+          Number(!a.node.name.toLowerCase().startsWith(q)) -
+            Number(!b.node.name.toLowerCase().startsWith(q)) ||
+          a.node.name.localeCompare(b.node.name),
+      )
+      .slice(0, 8)
+  }, [everyone, q])
+
   // ------------------------------------------------------------ pan / zoom
 
   const vpRef = useRef<HTMLDivElement>(null)
@@ -226,17 +285,33 @@ export function CAMap(props: Props) {
   // Arriving from "Show on map": once the data is in, select the person and
   // fly to their home base. Someone the map can't place still gets their card,
   // with a line saying why there is no pin.
+  /** Select a person and zoom to their pin, if they have one. */
+  const flyTo = useCallback(
+    (id: string) => {
+      setSel({ kind: 'person', id })
+      const home = model.byId.get(id)?.home
+      const vp = vpRef.current
+      if (!home || !vp) return
+      const k = fitK.current * 5
+      setView({ k, x: vp.clientWidth / 2 - home.x * k, y: vp.clientHeight / 2 - home.y * k })
+    },
+    [model],
+  )
+
   const { focusId, onFocusHandled } = props
   useEffect(() => {
     if (!focusId || props.loading) return
     onFocusHandled?.()
-    setSel({ kind: 'person', id: focusId })
-    const home = model.byId.get(focusId)?.home
-    const vp = vpRef.current
-    if (!home || !vp) return
-    const k = fitK.current * 5
-    setView({ k, x: vp.clientWidth / 2 - home.x * k, y: vp.clientHeight / 2 - home.y * k })
-  }, [focusId, props.loading, model, onFocusHandled])
+    flyTo(focusId)
+  }, [focusId, props.loading, flyTo, onFocusHandled])
+
+  function pickResult(id: string) {
+    setQuery('')
+    // A filter that hides them would leave the zoom pointing at an empty spot.
+    const p = model.byId.get(id)
+    if (p && !isWho(p, who)) setWho('all')
+    flyTo(id)
+  }
 
   // ------------------------------------------------------------- selection
 
@@ -261,7 +336,7 @@ export function CAMap(props: Props) {
   // ------------------------------------------------------------------ draw
 
   const pins: Array<{ spot: Spot; kind: Kind; count: number }> = []
-  for (const spot of model.spots.values()) {
+  for (const spot of spots.values()) {
     for (const kind of ['past', 'potential', 'active', 'people'] as Kind[]) {
       const count = spot[kind].length
       if (count && shown[kind]) pins.push({ spot, kind, count })
@@ -334,8 +409,8 @@ export function CAMap(props: Props) {
         onPerson={(id) => pickPerson(id)}
       />
     )
-  } else if (sel?.kind === 'spot' && model.spots.get(sel.key)) {
-    const spot = model.spots.get(sel.key)!
+  } else if (sel?.kind === 'spot' && spots.get(sel.key)) {
+    const spot = spots.get(sel.key)!
     panel = (
       <SpotCard
         spot={spot}
@@ -344,6 +419,33 @@ export function CAMap(props: Props) {
         onPerson={(id) => pickPerson(id, { key: spot.place.key, type: 'people' })}
         onProject={(key) => setSel({ kind: 'project', key, from: { key: spot.place.key, type: sel.type } })}
       />
+    )
+  } else if (who !== 'all' && !props.loading) {
+    // With a filter on, the panel lists who it kept, so nobody without a pin
+    // (no home base and no timesheets) is missing from the answer.
+    panel = (
+      <section className="card pad stack">
+        <div className="plist-head">
+          <h2 className="h-sm">{WHO_LABEL[who]}</h2>
+          <p className="eyebrow mono">{filtered.length}</p>
+        </div>
+        {filtered.length === 0 ? (
+          <p className="meta">Nobody right now.</p>
+        ) : (
+          <div className="plist">
+            {filtered.map((p) => (
+              <button key={p.node.id} type="button" className="prow" onClick={() => flyTo(p.node.id)}>
+                <Avatar node={p.node} size={32} />
+                <span className="prow-text">
+                  <span className="prow-name">{p.node.name}</span>
+                  <span className="prow-sub">{whereLabel(p)}</span>
+                </span>
+                <IconChevronRight />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     )
   } else {
     panel = (
@@ -386,6 +488,58 @@ export function CAMap(props: Props) {
 
   return (
     <div className="split">
+      <div className="camap-main">
+        <div className="camap-bar" role="search">
+          <div className="camap-search">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && results[0]) pickResult(results[0].node.id)
+                else if (e.key === 'Escape') setQuery('')
+              }}
+              placeholder="Search people on the map"
+              aria-label="Search people on the map"
+            />
+            {q && (
+              <ul className="sb-results camap-results" aria-label="Matches">
+                {results.length === 0 && <li className="sb-noresult">Nobody matches.</li>}
+                {results.map((p) => (
+                  <li key={p.node.id}>
+                    <button type="button" className="sb-result" onClick={() => pickResult(p.node.id)}>
+                      <Avatar node={p.node} size={28} />
+                      <span className="sb-result-text">
+                        <span className="sb-result-name">{p.node.name}</span>
+                        <span className="sb-result-title">
+                          {[p.node.title, whereLabel(p)].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <label className="camap-filter">
+            <span>Show</span>
+            <select
+              value={who}
+              onChange={(e) => {
+                setWho(e.target.value as Who)
+                setSel(null)
+              }}
+            >
+              {(Object.keys(WHO_LABEL) as Who[]).map((w) => (
+                <option key={w} value={w}>
+                  {w === 'all'
+                    ? WHO_LABEL[w]
+                    : `${WHO_LABEL[w]} (${everyone.filter((p) => isWho(p, w)).length})`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       <section className="card camap-card" aria-label="Map of people and projects">
         <div
           ref={vpRef}
@@ -517,6 +671,7 @@ export function CAMap(props: Props) {
           </button>
         </div>
       </section>
+      </div>
 
       <div className="split-side side-sticky">{panel}</div>
     </div>
@@ -524,6 +679,15 @@ export function CAMap(props: Props) {
 }
 
 // ================================================================== panels
+
+/** Where someone shows on the map, in a few words. */
+function whereLabel(p: Person): string {
+  if (p.homeSource === 'traveler') {
+    return p.home ? `Full-time traveler · now near ${p.home.label}` : 'Full-time traveler'
+  }
+  if (!p.home) return 'Not on the map'
+  return p.homeSource === 'timesheets' ? `${p.home.label} · from timesheets` : p.home.label
+}
 
 function hrs(n: number) {
   return `${Math.round(n * 10) / 10} hrs`

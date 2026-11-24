@@ -2919,3 +2919,48 @@ a.who-photo:hover .who-li {
 .panel small.warn-text {
   color: var(--warn);
 }
+
+/* The bar above the CriticalArc map: search, then the Show filter. */
+.camap-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.camap-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.camap-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.camap-search input {
+  width: 100%;
+}
+
+.camap-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  max-height: 360px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.camap-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
