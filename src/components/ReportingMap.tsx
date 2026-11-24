@@ -3,6 +3,8 @@ import type { ChartNode } from '../lib/types'
 import { countBelow, type Forest } from '../lib/tree'
 import { Avatar } from './Avatar'
 
+export type MapDirection = 'across' | 'down'
+
 /** Test mode's hooks into the map. Absent outside test mode. */
 export type MapTest = {
   selectedId: string | null
@@ -68,6 +70,8 @@ type Props = {
   /** When set, each manager gets a +/− tab and only open ones show reports. */
   open?: Set<string>
   onToggle?: (id: string) => void
+  /** Left-to-right columns (the default), or top-down like a classic chart. */
+  direction?: MapDirection
   /** The person whose card is open: ringed, and pulsing as it arrives. */
   selectedId?: string | null
   /** Scroll this seat into view once it is drawn, then call onFocusHandled. */
@@ -103,7 +107,7 @@ export function ReportingMap(props: Props) {
   })
 
   return (
-    <div className="rmap" ref={rootRef}>
+    <div className={props.direction === 'down' ? 'rmap is-down' : 'rmap'} ref={rootRef}>
       {forest.roots.map((root) => (
         <div className="rmap-root" key={root.id}>
           <Branch {...props} node={root} depth={0} />

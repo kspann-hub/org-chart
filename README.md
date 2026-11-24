@@ -300,7 +300,8 @@ watch the network tab before signing in — every query should come back `[]`.
 one entry per vertical with its headcount, and at the bottom **Export PNG** and
 **Sign out** (plus **Sync with Ajera** and **Recent changes** for admins).
 Search matches every word you type, in any order; picking a result opens that
-person in their vertical's reporting tree, selected.
+person's vertical on its map overview, scrolled to them, outlined, with their
+card beside it.
 
 **Overview** is the whole firm as one circle — every seat at once, no
 scrolling. Nothing sits at the centre except the firm itself: the verticals are
@@ -313,13 +314,14 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
 - **Hover anyone** to light their line back to their vertical's lead, plus
   their own direct reports. Click to keep it. The panel beside the circle then
   shows a lead's team (click a report for their details) or a person's
-  details, with **Show in tree** and **Map overview** to go further. Every
+  details, with **Show on map** to see them on the CriticalArc map (zoomed to
+  their home base, pin pulsing) and an **×** to close the card. Every
   card, leads included, lists title, hire date, manager and email; a photo
   with a LinkedIn badge opens that profile. Hire date needs
   `supabase/08_hire_date.sql` to have been run, and shows a dash until then.
   Admins get a pencil on the card that opens the full edit panel in place.
   It is the same card everywhere: clicking a person on the circle, on a map
-  overview, in a reporting tree or on the full org chart all open it.
+  overview, on the full org chart or on the CriticalArc map all open it.
 - **Open a vertical** from the sidebar, or by clicking its coloured band. The
   circle answers "what does this place look like"; a vertical answers "who
   reports to whom". **Key** under the panel explains the rings and outlines.
@@ -336,8 +338,8 @@ in `RING_NAMES` in [`src/lib/circle.ts`](src/lib/circle.ts)).
 **A vertical** opens on its **map overview**: headcount, managers, average
 team size and how many seats need attention (not active in Ajera, or vacant),
 then the reporting line as columns — lead, managers, and each manager's team
-as a compact box of names. Click anyone to see them in the **reporting tree**,
-the pan-and-zoom chart that admins edit.
+as a compact box of names. Click anyone for their card beside the map; admins
+edit from the pencil on that card.
 
 **Test mode** on the map overview is a sandbox. Drag anyone — managers
 included — onto a person or a team to change who they report to (moves that
@@ -349,10 +351,16 @@ undo. Nothing is saved — not to the chart, not to
 Ajera — and leaving the page or **Exit test mode** throws the copy away.
 
 **Full org chart** shows every vertical the same way, folded to leads and
-their managers; open any seat with its `+` tab, or **Expand all**. **Tree
-view** switches to the whole company as one reporting tree.
+their managers; open any seat with its `+` tab, or **Expand all**.
+**Top-down / Left-to-right** (here and on each vertical) turns the map on its
+side; the choice is remembered per browser.
 
-**CriticalArc map** (sidebar, or the third tab on Full org chart) puts everyone
+There used to be a pan-and-zoom **Tree view** as well. It was removed in
+November 2026 once the map overviews and the CriticalArc map covered
+everything it did: changing who someone reports to and adding seats now
+happen from the pencil on a card.
+
+**CriticalArc map** (sidebar, or the second tab on Full org chart) puts everyone
 at their home base and every Ajera project at its location: active (teal,
 including WorkHold/Hold), potential (orange, Preliminary/Marketing) and past
 (grey, Closed). Click a pin for who or what is there, a person for their card
@@ -372,22 +380,16 @@ who's on it. Needs `supabase/10_map.sql`.
 
 **Everyone**
 
-- **Find me** jumps to your own box, which is also outlined and tagged *You*.
+- **Find me** (on Full org chart) jumps to your own seat on the map, which is
+  also outlined and tagged *You*.
   This works by matching your login address against Ajera's `employee_email`,
   so it quietly does nothing for anyone whose Ajera email doesn't match the
   address they sign in with.
 - Search by name, title or email. It also searches the Ajera legal name, so
   looking up "Samuel" still finds the box that displays "Sam". Enter opens the
   first match.
-- In the tree, scroll to move, Ctrl + scroll to zoom, drag the background to
-  pan, **Fit** to see the whole thing.
-- The `−` / `+N` bubble on a box collapses or expands that branch.
-- **Top-down / Left-to-right** switches orientation, remembered per browser.
-  Left-to-right is the default because a 76-person top-down tree is roughly
-  18,000px wide — depth becomes width (four or five columns whatever the
-  headcount) and headcount becomes height, which scrolls naturally.
-- **Export PNG** downloads the current vertical (or everyone) as an image, including whatever is
-  collapsed and whichever orientation you're in. It's drawn from the layout
+- **Export PNG** downloads the current vertical (or everyone, one tree per
+  vertical) as a left-to-right reporting chart. It's drawn from the layout
   data onto a canvas at 2× rather than screenshotting the page, so it stays
   sharp when scaled into a deck. A headshot that fails CORS is skipped and
   that card falls back to initials rather than failing the export.
@@ -399,21 +401,19 @@ who's on it. Needs `supabase/10_map.sql`.
   moves, additions, edits and deletions, each with **Undo**. Beside it, who was
   added in the last 24 hours and a **Sync now** button.
 
-- **Drag a box onto another** to change who it reports to. Dropping on empty
-  canvas moves it to the top level. Boxes you can't legally drop on — the
-  dragged seat's own reports — dim out.
-- **Click a box** to open the edit panel: swap the person, override the
-  displayed name or title, hide the title, delete the seat. The panel also
-  shows the person's Ajera email and employee type.
+- **The pencil on any card** opens the edit panel: swap the person, override
+  the displayed name or title, hide the title, change **Reports to**, **Add a
+  report** under them, or delete the seat. The panel also shows the person's
+  Ajera email and employee type.
 - **LinkedIn profile** in that panel puts a small LinkedIn badge on the corner
-  of that person's headshot, on the tree views and in the exported PNG. Anyone
+  of that person's headshot, on their card and in the exported PNG. Anyone
   signed in can click it to open the profile in a new tab; a seat with no link
   simply has no badge. Paste the address from their profile page — with or
   without the `https://`, tracking tails trimmed on save. The link is stored on
   the *seat*, like the photo is, so someone holding several seats needs it on
   each box that should show a badge. The landing-page circle stays plain.
-- **Not on the chart** lists active Ajera people with no box, which is your
-  new-hire queue. Select the box they should report to first, then hit *Add*.
+- **New hires:** open the card of the person they'll report to, pencil, **Add
+  a report**, then pick them in the new seat's editor.
 - Deleting a manager **promotes their reports one level** rather than deleting
   the branch.
 

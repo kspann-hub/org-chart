@@ -6,7 +6,6 @@ import type {
   HistoryEntry,
   MapHours,
   MapProject,
-  Orientation,
   SyncResult,
 } from '../lib/types'
 import { descendantIds, layoutChart } from '../lib/layout'
@@ -18,10 +17,10 @@ import { Sidebar, type Page } from './Sidebar'
 import { Overview } from './Overview'
 import { ReportingMap } from './ReportingMap'
 import { ChangesPage } from './ChangesPage'
-import { Chart } from './Chart'
 import { EditPanel } from './EditPanel'
 import { PersonCard, type PersonContext, type PersonEditor } from './PersonCard'
 import { IconBack, IconFlask } from './Icons'
+import type { MapDirection } from './ReportingMap'
 
 /** Everything that touches the database. App supplies the real ones. */
 export type WorkspaceActions = {
@@ -67,18 +66,19 @@ type Props = {
 
 const SEARCH_LIMIT = 8
 
+const DIRECTION_KEY = 'orgchart.mapDirection'
+
+function readDirection(): MapDirection {
+  try {
+    return localStorage.getItem(DIRECTION_KEY) === 'down' ? 'down' : 'across'
+  } catch {
+    return 'across'
+  }
+}
+
 // The map brings the US outline and the Census list of places with it — about
 // 400 KB — so it loads only when someone opens that tab.
 const CAMap = lazy(() => import('./CAMap').then((m) => ({ default: m.CAMap })))
-
-function readOrientation(): Orientation {
-  try {
-    const v = localStorage.getItem('orgchart.orientation')
-    return v === 'vertical' || v === 'horizontal' ? v : 'horizontal'
-  } catch {
-    return 'horizontal'
-  }
-}
 
 /**
  * The signed-in app: the sidebar and whichever screen it has open.
@@ -94,21 +94,18 @@ export function Workspace(props: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
 
-  // Horizontal by default: a 76-person top-down tree is ~18,000px wide and
-  // unreadable without zooming out past the point of legibility. Remembered
-  // per browser so nobody has to re-pick it every visit.
-  const [orientation, setOrientation] = useState<Orientation>(readOrientation)
+  // Map view's direction, remembered per browser like the old tree's was.
+  const [direction, setDirection] = useState<MapDirection>(readDirection)
   useEffect(() => {
     try {
-      localStorage.setItem('orgchart.orientation', orientation)
+      localStorage.setItem(DIRECTION_KEY, direction)
     } catch {
       // Private window or blocked storage: the choice just isn't remembered.
     }
-  }, [orientation])
+  }, [direction])
+  const directionToggle = <DirectionToggle value={direction} onChange={setDirection} />
 
   // ---------------------------------------------------------------- derived
 
@@ -125,8 +122,6 @@ export function Workspace(props: Props) {
     if (page.kind === 'group' && !props.loading && !activeGroup) setPage({ kind: 'home' })
   }, [page, activeGroup, props.loading])
 
-  const isTree = (page.kind === 'group' || page.kind === 'all') && page.mode === 'tree'
-
   const onMapTab = page.kind === 'all' && page.mode === 'places'
   const { map, mapLoading, mapError } = props
   useEffect(() => {
@@ -141,7 +136,7 @@ export function Workspace(props: Props) {
     [nodes, membership, activeGroup],
   )
 
-  // The whole-company tree draws each vertical as its own tree, the way the
+  // Export PNG draws the whole company as one tree per vertical, the way the
   // map view does. Drawn literally, every lead hangs under whoever they report
   // to (Brian and Logan under Justin), and the verticals vanish into one
   // pyramid. Only the drawing changes: the real reporting line is untouched,
@@ -158,11 +153,6 @@ export function Workspace(props: Props) {
       return { ...n, position: { ...n.position, parent_id: null, sort_order } }
     })
   }, [activeGroup, visibleNodes, nodes, membership, summaries])
-
-  const layout = useMemo(
-    () => layoutChart(treeNodes, collapsed, orientation),
-    [treeNodes, collapsed, orientation],
-  )
 
   const circle = useMemo(() => layoutCircle(nodes, groups), [nodes, groups])
 
@@ -184,11 +174,6 @@ export function Workspace(props: Props) {
 
   const q = query.trim().toLowerCase()
 
-  const matchedIds = useMemo(
-    () => (q ? new Set(visibleNodes.filter((n) => matches(n, q)).map((n) => n.id)) : new Set<string>()),
-    [visibleNodes, q, matches],
-  )
-
   const searchResults = useMemo(() => {
     if (!q) return []
     // Names that start with the query first: "an" should find Ana before Brian.
@@ -201,11 +186,6 @@ export function Workspace(props: Props) {
       )
       .slice(0, SEARCH_LIMIT)
   }, [nodes, q, matches])
-
-  const forbiddenIds = useMemo(
-    () => (draggingId ? descendantIds(draggingId, nodes) : new Set<string>()),
-    [draggingId, nodes],
-  )
 
   const nameById = useMemo(() => new Map(nodes.map((n) => [n.id, n.name])), [nodes])
 
@@ -220,8 +200,6 @@ export function Workspace(props: Props) {
     )
   }, [nodes, props.email])
 
-  const selected = isTree && selectedId ? layout.byId.get(selectedId) ?? null : null
-
   // ------------------------------------------------------------- navigation
 
   const navigate = useCallback(
@@ -232,28 +210,6 @@ export function Workspace(props: Props) {
       if (next.kind === 'changes') void actions.loadHistory()
     },
     [actions],
-  )
-
-  /** Open a seat in the tree it belongs to, unfolding whatever hides it. */
-  const openInTree = useCallback(
-    (id: string) => {
-      const groupId = membership.get(id)
-      const parents = new Map(nodes.map((n) => [n.id, n.position.parent_id]))
-      setCollapsed((prev) => {
-        if (prev.size === 0) return prev
-        const next = new Set(prev)
-        let cursor = parents.get(id) ?? null
-        const seen = new Set<string>()
-        while (cursor && !seen.has(cursor)) {
-          seen.add(cursor)
-          next.delete(cursor)
-          cursor = parents.get(cursor) ?? null
-        }
-        return next
-      })
-      navigate(groupId ? { kind: 'group', id: groupId, mode: 'tree' } : { kind: 'all', mode: 'tree' }, id)
-    },
-    [membership, nodes, navigate],
   )
 
   /**
@@ -274,38 +230,17 @@ export function Workspace(props: Props) {
     [navigate],
   )
 
-  const findMe = viewerIds.size > 0 ? () => openInTree([...viewerIds][0]) : undefined
+  const findMe = viewerIds.size > 0 ? () => openInMap([...viewerIds][0]) : undefined
 
   const clearFocus = useCallback(() => setFocusId(null), [])
 
-  function toggleCollapse(id: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
   // ---------------------------------------------------------------- actions
-
-  async function addSeat() {
-    // A seat with no parent is a new root. Inside a group view the group's
-    // members are the only visible nodes, so a new root lands outside the
-    // filter and the click looks like it did nothing. Falling back to the
-    // group's own root keeps the new seat where the admin is looking.
-    const parent = selectedId ?? activeGroup?.root_position_id ?? null
-    const id = await actions.addSeat(parent)
-    if (id) {
-      setSelectedId(id)
-      setFocusId(id)
-    }
-  }
 
   async function exportPng() {
     setExporting(true)
     try {
       const label = activeGroup?.name ?? 'Everyone'
+      const layout = layoutChart(treeNodes, new Set(), 'horizontal')
       const blob = await exportChartPng(layout, {
         title: `CriticalArc — ${label}`,
         subtitle: `${layout.nodes.length} of ${nodes.length} people · ${new Date().toLocaleDateString()}`,
@@ -396,96 +331,9 @@ export function Workspace(props: Props) {
     />
   )
 
-  /** Select a seat in the tree; one outside this tree opens its own. */
-  const selectInTree = (id: string | null) => {
-    if (!id) return setSelectedId(null)
-    if (layout.byId.has(id)) {
-      setSelectedId(id)
-      setFocusId(id)
-    } else openInTree(id)
-  }
-
   // Beside a map, the card of whoever was clicked on it.
   const mapSide =
     selectedId && personCtx.byId.has(selectedId) ? personCard(selectedId, setSelectedId) : null
-
-  const tree = (
-    <TreeSection
-      admin={isAdmin}
-      panel={
-        selected ? (
-          <aside className="side-panel">{personCard(selected.id, selectInTree)}</aside>
-        ) : null
-      }
-    >
-      <Chart
-        layout={layout}
-        isAdmin={isAdmin}
-        selectedId={selectedId}
-        matchedIds={matchedIds}
-        searching={q.length > 0}
-        collapsed={collapsed}
-        forbiddenIds={forbiddenIds}
-        viewerIds={viewerIds}
-        orientation={orientation}
-        accentOf={accentById}
-        onSelect={setSelectedId}
-        onToggleCollapse={toggleCollapse}
-        onReparent={(child, parent) => {
-          // A vertical's lead is drawn without its real manager (see
-          // treeNodes), so a drop back onto that manager would change nothing.
-          if (nodes.find((n) => n.id === child)?.position.parent_id === parent) return
-          void actions.reparent(child, parent)
-        }}
-        onDragStateChange={setDraggingId}
-        focusId={focusId}
-        onFocusHandled={clearFocus}
-      />
-    </TreeSection>
-  )
-
-  const treeControls = (
-    <>
-      <div className="seg" role="group" aria-label="Tree direction">
-        <button
-          type="button"
-          className="btn"
-          aria-pressed={orientation === 'vertical'}
-          onClick={() => setOrientation('vertical')}
-        >
-          Top-down
-        </button>
-        <button
-          type="button"
-          className="btn"
-          aria-pressed={orientation === 'horizontal'}
-          onClick={() => setOrientation('horizontal')}
-          title="Fits far better at this headcount"
-        >
-          Left-to-right
-        </button>
-      </div>
-      {findMe && (
-        <button type="button" className="btn" onClick={findMe}>
-          Find me
-        </button>
-      )}
-      {isAdmin && (
-        <button
-          type="button"
-          className="btn"
-          onClick={() => void addSeat()}
-          title={
-            selectedId
-              ? 'Add a seat reporting to the selected box'
-              : 'Add a seat, then pick who fills it'
-          }
-        >
-          {selectedId ? 'Add a report' : 'Add a person'}
-        </button>
-      )}
-    </>
-  )
 
   // ----------------------------------------------------------------- screen
 
@@ -526,8 +374,6 @@ export function Workspace(props: Props) {
         group={activeGroup}
         members={visibleNodes}
         lead={nodes.find((n) => n.id === activeGroup.root_position_id) ?? null}
-        mode={page.mode}
-        onMode={(mode) => navigate({ kind: 'group', id: activeGroup.id, mode })}
         onOpen={setSelectedId}
         side={mapSide}
         selectedId={selectedId}
@@ -537,8 +383,8 @@ export function Workspace(props: Props) {
         viewerIds={viewerIds}
         exporting={exporting}
         onExport={() => void exportPng()}
-        treeControls={treeControls}
-        tree={tree}
+        direction={direction}
+        directionToggle={directionToggle}
       />
     )
   } else if (page.kind === 'all') {
@@ -567,8 +413,9 @@ export function Workspace(props: Props) {
         onFocusHandled={clearFocus}
         accentOf={accentById}
         viewerIds={viewerIds}
-        treeControls={treeControls}
-        tree={tree}
+        onFindMe={findMe}
+        direction={direction}
+        directionToggle={directionToggle}
         places={
           <Suspense fallback={<div className="boot">Loading the map…</div>}>
             <CAMap
@@ -632,54 +479,6 @@ export function Workspace(props: Props) {
   )
 }
 
-// ======================================================================= tree
-
-function TreeSection(props: { admin: boolean; panel: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="tree-wrap">
-      <section className="card tree-card" aria-label="Reporting tree">
-        <div className="tree-bar">
-          <div className="hints">
-            <span>
-              <b>Scroll</b> to move around
-            </span>
-            <span>
-              <b>Ctrl + scroll</b> to zoom
-            </span>
-            <span>
-              <b>Drag</b> the background to pan
-            </span>
-            {props.admin && (
-              <span>
-                <b>Drag a box</b> onto another to change who it reports to
-              </span>
-            )}
-          </div>
-          <div className="legend">
-            <span>
-              <i className="sw" />
-              From Ajera
-            </span>
-            <span>
-              <i className="sw is-manual" />
-              Added here
-            </span>
-            <span>
-              <i className="sw is-vacant" />
-              Vacant
-            </span>
-            <span>
-              <i className="sw is-stale" />
-              Not active in Ajera
-            </span>
-          </div>
-        </div>
-        {props.children}
-      </section>
-      {props.panel}
-    </div>
-  )
-}
 
 // =================================================================== vertical
 
@@ -687,8 +486,6 @@ function VerticalPage(props: {
   group: Group
   members: ChartNode[]
   lead: ChartNode | null
-  mode: 'map' | 'tree'
-  onMode: (mode: 'map' | 'tree') => void
   onOpen: (id: string) => void
   /** The employee card for whoever was clicked on the map, if anyone. */
   side: React.ReactNode
@@ -700,8 +497,8 @@ function VerticalPage(props: {
   viewerIds: Set<string>
   exporting: boolean
   onExport: () => void
-  treeControls: React.ReactNode
-  tree: React.ReactNode
+  direction: MapDirection
+  directionToggle: React.ReactNode
 }) {
   const { group, members, lead } = props
 
@@ -867,36 +664,6 @@ function VerticalPage(props: {
     </h1>
   )
 
-  if (props.mode === 'tree') {
-    return (
-      <div className="page">
-        <header className="page-head">
-          <div className="page-title">
-            <p className="eyebrow">
-              <button type="button" className="crumb" onClick={() => props.onMode('map')}>
-                {group.name}
-              </button>{' '}
-              · Reporting tree
-            </p>
-            {heading}
-            <p className="lede">
-              Who reports to whom. Click a seat to select it; use the + and − tabs to open or
-              fold a team.
-            </p>
-          </div>
-          <div className="page-actions">
-            <button type="button" className="btn" onClick={() => props.onMode('map')}>
-              <IconBack />
-              Back to map overview
-            </button>
-            {props.treeControls}
-          </div>
-        </header>
-        {props.tree}
-      </div>
-    )
-  }
-
   const addedIds = new Set(added.map((a) => a.id))
   const changes: { id: string; name: string; detail: string; undo: () => void }[] = [
     ...added.map((a) => ({
@@ -943,8 +710,8 @@ function VerticalPage(props: {
           {heading}
           <p className="lede">
             {lead
-              ? `Everyone under ${lead.name}${lead.title ? `, ${lead.title}` : ''}, one level per column.`
-              : 'Everyone in this vertical, one level per column.'}
+              ? `Everyone under ${lead.name}${lead.title ? `, ${lead.title}` : ''}, one level per ${props.direction === 'down' ? 'row' : 'column'}.`
+              : `Everyone in this vertical, one level per ${props.direction === 'down' ? 'row' : 'column'}.`}
           </p>
         </div>
         <div className="page-actions">
@@ -961,9 +728,7 @@ function VerticalPage(props: {
             <IconFlask />
             {testOn ? 'Exit test mode' : 'Test mode'}
           </button>
-          <button type="button" className="btn" onClick={() => props.onMode('tree')}>
-            Open reporting tree
-          </button>
+          {props.directionToggle}
           <button type="button" className="btn" onClick={props.onExport} disabled={props.exporting}>
             {props.exporting ? 'Rendering…' : 'Export PNG'}
           </button>
@@ -1082,6 +847,7 @@ function VerticalPage(props: {
             accentOf={props.accentOf}
             viewerIds={props.viewerIds}
             onOpen={props.onOpen}
+            direction={props.direction}
             selectedId={testOn ? null : props.selectedId}
             focusId={props.focusId}
             onFocusHandled={props.onFocusHandled}
@@ -1139,8 +905,8 @@ function CompanyPage(props: {
   rows: CompanyRow[]
   total: number
   verticalCount: number
-  mode: 'map' | 'tree' | 'places'
-  onMode: (mode: 'map' | 'tree' | 'places') => void
+  mode: 'map' | 'places'
+  onMode: (mode: 'map' | 'places') => void
   onBack: () => void
   onOpen: (id: string) => void
   side: React.ReactNode
@@ -1149,8 +915,10 @@ function CompanyPage(props: {
   onFocusHandled: () => void
   accentOf: (id: string) => string | null
   viewerIds: Set<string>
-  treeControls: React.ReactNode
-  tree: React.ReactNode
+  /** Jump to the signed-in person's own seat. Absent if they have none. */
+  onFindMe?: () => void
+  direction: MapDirection
+  directionToggle: React.ReactNode
   /** The CriticalArc map, the page's third view. */
   places: React.ReactNode
 }) {
@@ -1203,9 +971,7 @@ function CompanyPage(props: {
             {props.verticalCount === 1 ? 'vertical' : 'verticals'}.{' '}
             {props.mode === 'map'
               ? 'Use + on any seat to open the level below it.'
-              : props.mode === 'tree'
-                ? 'Each vertical as its own reporting tree, starting from its lead.'
-                : "Everyone at their home base, and the projects they're charging time to."}
+              : "Everyone at their home base, and the projects they're charging time to."}
           </p>
         </div>
         <div className="page-actions">
@@ -1225,22 +991,20 @@ function CompanyPage(props: {
             <button
               type="button"
               className="btn"
-              aria-pressed={props.mode === 'tree'}
-              onClick={() => props.onMode('tree')}
-            >
-              Tree view
-            </button>
-            <button
-              type="button"
-              className="btn"
               aria-pressed={props.mode === 'places'}
               onClick={() => props.onMode('places')}
             >
               CriticalArc map
             </button>
           </div>
-          {props.mode === 'places' ? null : props.mode === 'map' ? (
+          {props.mode === 'map' && (
             <>
+              {props.directionToggle}
+              {props.onFindMe && (
+                <button type="button" className="btn" onClick={props.onFindMe}>
+                  Find me
+                </button>
+              )}
               <button type="button" className="btn" onClick={() => setOpen(new Set(allManagers))}>
                 Expand all
               </button>
@@ -1248,16 +1012,12 @@ function CompanyPage(props: {
                 Collapse all
               </button>
             </>
-          ) : (
-            props.treeControls
           )}
         </div>
       </header>
 
       {props.mode === 'places' ? (
         props.places
-      ) : props.mode === 'tree' ? (
-        props.tree
       ) : (
         <MapWithSide side={props.side}>
         <section className="card pad stack" aria-label="Company reporting map">
@@ -1273,6 +1033,7 @@ function CompanyPage(props: {
                   accentOf={(id) => props.accentOf(id) ?? row.accent}
                   viewerIds={props.viewerIds}
                   onOpen={props.onOpen}
+                  direction={props.direction}
                   selectedId={props.selectedId}
                   focusId={props.focusId}
                   onFocusHandled={props.onFocusHandled}
@@ -1303,6 +1064,30 @@ function MapWithSide(props: { side: React.ReactNode; children: React.ReactNode }
     <div className="split">
       {props.children}
       <div className="split-side side-sticky">{props.side}</div>
+    </div>
+  )
+}
+
+/** Top-down or left-to-right, for the map views. */
+function DirectionToggle(props: { value: MapDirection; onChange: (v: MapDirection) => void }) {
+  return (
+    <div className="seg" role="group" aria-label="Map direction">
+      <button
+        type="button"
+        className="btn"
+        aria-pressed={props.value === 'down'}
+        onClick={() => props.onChange('down')}
+      >
+        Top-down
+      </button>
+      <button
+        type="button"
+        className="btn"
+        aria-pressed={props.value === 'across'}
+        onClick={() => props.onChange('across')}
+      >
+        Left-to-right
+      </button>
     </div>
   )
 }
